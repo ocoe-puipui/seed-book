@@ -1,6 +1,6 @@
 2026/08/09
 
-[English README is here / 英語版はこちら](./README.md) ｜ [简体中文说明 / 中国語版はこちら](./README.zh-CN.md)
+[English README is here / 英語版はこちら](./README.md)
 
 <img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/c3fd22de-0f36-4f6f-b675-1a8a1729dab1" />
 

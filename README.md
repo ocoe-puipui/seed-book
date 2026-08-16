@@ -1,6 +1,6 @@
 2026/08/16 (v1.2.0)
 
-[日本語版はこちら / Japanese README is here](./README.ja.md) ｜ [简体中文说明 / Chinese README is here](./README.zh-CN.md)
+[日本語版はこちら / Japanese README is here](./README.ja.md)
 
 <img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/c3fd22de-0f36-4f6f-b675-1a8a1729dab1" />
 

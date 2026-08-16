@@ -27,3 +27,6 @@ sync_deploy.command
 
 # 開発日記の下書き（公開先は別リポジトリのため、このリポジトリには含めない）
 diary_*.md
+
+# このリポジトリ内での編集相談の記録（非公開メモ）
+seed_book_local_notes.md
