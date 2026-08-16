@@ -1,0 +1,29 @@
+# データベースファイルを除外
+*.db
+*.sqlite3
+
+# Pythonの一時ファイルを除外
+__pycache__/
+*.pyc
+
+# OSの一時ファイルを除外
+.DS_Store
+Thumbs.db
+
+# 仮想環境を除外
+venv/
+.venv/
+test_venv/
+
+# PyInstallerのビルド生成物を除外（ソースから再生成可能・容量が大きいため）
+build/
+dist/
+
+# ローカル環境ごとの状態ファイルを除外（DB本体はApplication Support配下で管理）
+current_db.txt
+
+# 開発者個人のローカル環境専用ツール（絶対パスなど個人環境依存の情報を含むため）
+sync_deploy.command
+
+# 開発日記の下書き（公開先は別リポジトリのため、このリポジトリには含めない）
+diary_*.md

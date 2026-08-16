@@ -1,0 +1,54 @@
+Seed Book (AI image browser)
+Copyright (c) 2026 puipui. All rights reserved.
+
+This is a proprietary, freeware-style license (not an open-source license).
+It applies to the application's own source code and to the compiled/packaged
+application (the "Software"), except for the third-party components listed
+in THIRD-PARTY-NOTICES.md, which remain under their own respective licenses.
+
+1. GRANT OF LICENSE
+   You are granted a free, non-exclusive, non-transferable license to
+   download and use the Software for personal or internal purposes, at no
+   charge, subject to the terms below. Voluntary financial support (e.g.
+   via Ko-fi or similar platforms) does not change the terms of this
+   license or create any additional rights.
+
+2. RESTRICTIONS
+   Unless you have received prior written permission from the copyright
+   holder, you may NOT:
+     a) redistribute, re-host, mirror, or re-upload the Software (in
+        original or modified form) on any other website, platform, app
+        store, or file-sharing service;
+     b) sell, rent, lease, sublicense, or otherwise charge money for the
+        Software or access to it;
+     c) modify, reverse engineer, decompile, or disassemble the Software,
+        except to the extent such restriction is expressly prohibited by
+        applicable law;
+     d) remove or alter any copyright, trademark, or other proprietary
+        notices contained in the Software.
+
+3. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+4. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+5. THIRD-PARTY COMPONENTS
+   The Software makes use of third-party open-source libraries, each
+   governed by its own license. See THIRD-PARTY-NOTICES.md for details.
+   Nothing in this license shall be construed to restrict any rights you
+   have under those third-party licenses.
+
+6. FUTURE RELICENSING
+   The author intends to release this project's source code under an
+   open-source license (e.g. MIT) at a future date, at the author's sole
+   discretion. Until that time, this license (All Rights Reserved) applies.
+
+7. CONTACT
+   For questions about this license, or to request permission for uses not
+   covered above, please contact the author via the project's GitHub page.

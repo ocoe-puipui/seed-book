@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  AI Image Viewer & Manager 用 Entitlements（Hardened Runtime有効化・公証対応）
+
+  Apple公証（notarization）を通すには、.appの署名時にHardened Runtimeを
+  有効にする必要がある。PySide6（Qt/Python）は内部でJITコンパイルや
+  動的にロードするライブラリを使うため、それらを許可する項目のみ最小限で
+  有効化している。それ以外の強い権限（カメラ・マイク・ネットワーク送受信等）は
+  このアプリでは不要なため付与しない。
+-->
+<plist version="1.0">
+<dict>
+    <!-- Pythonインタプリタ自体がJITやメモリ書き換えを行うため必要 -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- PySide6/Qtが同梱の.dylib（署名は付与済みだがApple公式Team以外）を
+         動的ロードするため、ライブラリ検証を緩和する必要がある -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- DYLD環境変数の変更を許可（PyInstallerのonedirバンドル構成で必要になる場合がある） -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+</dict>
+</plist>

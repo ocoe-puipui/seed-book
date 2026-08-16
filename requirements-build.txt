@@ -1,0 +1,4 @@
+# .app / .dmg ビルド専用の依存関係（アプリの実行には不要）。
+# 使い方: requirements.txt を先にインストールした venv の中で、
+#   pip install -r requirements-build.txt
+PyInstaller==6.21.0
