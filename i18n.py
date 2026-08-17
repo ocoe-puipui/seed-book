@@ -19,12 +19,9 @@
 import locale
 
 
-# 対応言語コードの一覧（表示順もこの並びに準拠する）
 SUPPORTED_LANGUAGES = ["ja", "en"]
 DEFAULT_LANGUAGE = "ja"
 
-# help.text（アプリ内ヘルプダイアログの全文）。app.py の HELP_TEXT と同一内容。
-# 1つの大きな文字列として扱い、細分化しない（Step2の方針どおり）。
 HELP_TEXT_JA = """Seed Book - ヘルプ
 
 このヘルプは簡易版です。より詳しい操作方法は、下のリンクからGitHubのマニュアルをご覧ください。
@@ -131,7 +128,6 @@ It uses the same chapter structure as the manual, so if you want more detail on 
 - Drag-and-drop import is temporarily disabled
 """
 
-# 言語ごとの文字列辞書。
 STRINGS = {
     "ja": {
         "language.auto": "自動（OSの言語設定に追従）",
@@ -140,7 +136,6 @@ STRINGS = {
         "language.group_title": "表示言語",
         "language.restart_notice": "表示言語の変更はアプリの再起動後に反映されます。",
 
-        # --- 共通（複数箇所で使い回すボタン・タイトル） ---
         "common.button.close": "閉じる",
         "common.button.cancel": "キャンセル",
         "common.button.save": "保存",
@@ -172,11 +167,9 @@ STRINGS = {
         "common.title.sync": "同期",
         "common.title.sync_cancelled": "同期を中断しました",
 
-        # --- CSVファイルダイアログ共通 ---
         "dialog.csv_save_title": "CSVの保存先を選択",
         "dialog.csv_filter": "CSVファイル (*.csv)",
 
-        # --- 同期履歴ダイアログ ---
         "dialog.sync_history.title": "同期履歴",
         "dialog.sync_history.header_datetime": "日時",
         "dialog.sync_history.header_type": "種別",
@@ -185,7 +178,6 @@ STRINGS = {
         "dialog.sync_history.empty": "記録されている同期履歴はまだありません。",
         "dialog.sync_history.export_button": "CSVに書き出す",
 
-        # --- 連番リネームのプレビュー表用テーブルダイアログ ---
         "dialog.rename_table.execute_button": "この内容で実行",
         "dialog.rename_table.warning_duplicate_or_empty": "同じ名前、または空の名前があるため実行できません。修正してください。",
         "dialog.rename_table.column_current_name": "現在の名前",
@@ -199,7 +191,6 @@ STRINGS = {
         "dialog.rename_table.locked_skip_note": "（編集ロック中の {count} 件は対象外です）",
         "dialog.rename_table.locked_skip_note_newline": "\n（編集ロック中の {count} 件は対象外です）",
 
-        # --- 読書モード（見開き表示） ---
         "reading.title": "読書モード",
         "reading.tooltip.theme_toggle": "読書モードの背景（ダーク/ライト）を切り替え",
         "reading.tooltip.center_align_toggle": "中央詰め表示（左右のページを画面中央で突き合わせる）を切り替え",
@@ -216,13 +207,11 @@ STRINGS = {
         "reading.tooltip.theme_toggle_to_dark": "ダーク表示に切り替え",
         "reading.label.load_failed": "画像を読み込めません",
 
-        # --- 全画面プレビュー ---
         "fullscreen.title": "AI Image Viewer - 全画面プレビュー",
         "fullscreen.button.exit": " 全画面を終了（Escキーでも可）",
         "notify.title.fullscreen": "全画面プレビュー",
         "notify.fullscreen_select_first": "先に画像を選択してください。",
 
-        # --- 取り込み順序の確認ダイアログ ---
         "dialog.import_order.title": "取り込み順序の確認",
         "dialog.import_order.question": "フォルダ内の画像を、どの順序で取り込みますか？",
         "dialog.import_order.filename_asc": "ファイル名順（記号 > 数字 > 英字 > かな > 漢字）",
@@ -235,7 +224,6 @@ STRINGS = {
         "dialog.import_order.allow_duplicates_tooltip": "ファイル名ではなく、画像の中身（内容）が完全に一致する場合の判定です。\nオフの場合、内容が同じ画像はスキップされます。",
         "dialog.import_order.ok_button": "この順序で取り込む",
 
-        # --- CSVエクスポートの範囲選択ダイアログ ---
         "dialog.csv_export_options.title": "CSVエクスポート",
         "dialog.csv_export_options.question": "エクスポートする項目の範囲を選んでください。",
         "dialog.csv_export_options.radio_basic": "基本情報のみ（名前・ファイル名・場所・評価・日付など）",
@@ -255,12 +243,10 @@ STRINGS = {
         "csv.header.other_params": "その他パラメータ/EXIF情報",
         "csv.value.locked": "ロック中",
 
-        # --- ヘルプダイアログ ---
         "help.title": "ヘルプ",
         "help.manual_link": 'より詳しい操作マニュアルは <a href="{MANUAL_URL}">こちら（GitHub）</a> をご覧ください。',
         "help.text": HELP_TEXT_JA,
 
-        # --- フォルダ専用の自動採番ダイアログ ---
         "dialog.folder_naming_rule.title": "フォルダ専用の自動採番 - {folder_name}",
         "dialog.folder_naming_rule.placeholder_hint": "{フォルダ名}・{日付} が使えます",
         "dialog.folder_naming_rule.override_checkbox": "このフォルダ専用のルールを使う",
@@ -270,12 +256,10 @@ STRINGS = {
         "dialog.folder_naming_rule.hint": "フォルダ「{folder_name}」専用の自動採番ルールです。新規に取り込む画像だけでなく、このフォルダの画像を一括リネーム・一括で書き出す際にも、このルールが優先して使われます。",
         "dialog.folder_naming_rule.sample_folder_name": "サンプルフォルダ",
 
-        # --- フォルダの並び順編集ダイアログ ---
         "dialog.folder_order.title": "フォルダの並び順を編集",
         "dialog.folder_order.intro": "ドラッグ&ドロップで、フォルダ別グループ表示での並び順を変更できます。",
         "dialog.folder_order.save_button": "この順序で保存",
 
-        # --- 設定ダイアログ: 全体・外観モード ---
         "settings.title": "設定",
         "settings.button.release_notes": " リリースノート 🐈",
         "settings.tooltip.release_notes": "GitHubの更新履歴ページをブラウザで開きます",
@@ -286,12 +270,10 @@ STRINGS = {
         "settings.panel.standard": "標準（検索・リストを左に表示）",
         "settings.panel.mirrored": "反転（検索・リストを右に表示）",
 
-        # --- 設定ダイアログ: フォルダ取り込み時の順序 ---
         "settings.import_order.title": "フォルダ取り込み時の順序",
         "settings.import_order.always_confirm": "毎回確認",
         "settings.import_order.auto_last_used": "前回使用した順序を自動選択",
 
-        # --- 設定ダイアログ: 自動採番・リネーム ---
         "settings.naming.title": "自動採番・リネーム",
         "settings.naming.auto_number_checkbox": "新規取り込み時に自動採番する",
         "settings.naming.auto_number_checkbox_tooltip": "オン: これまで通り、新規取り込み画像の「名前」に自動採番（例: CG_00001）を付与します\nオフ: 自動採番を付与せず、実際のファイル名（拡張子を除く）をそのまま「名前」として取り込みます",
@@ -310,7 +292,6 @@ STRINGS = {
         "settings.naming.save_confirm.body": "新しいルールを保存してもいいですか？\n(次回以降の新規取り込みの採番から適用されます)",
         "settings.naming.reset_counter_confirm.body": "プレフィックスとアペンドの採番をリセットします。\n\n現在のプレフィックス：　{prefix}　\n現在のアペンド：　{append}　\n\n\nこの操作は取り消せません。よろしいですか？",
 
-        # --- 設定ダイアログ: 表示項目・読書モードの既定・リセット ---
         "settings.display_fields.title": "表示項目（プロンプト等の表示欄に追加する生成パラメータ）",
         "settings.reading_defaults.title": "読書モード（見開き表示）の既定設定",
         "settings.reading_defaults.pattern_a": "左開き（左から右へ読む）",
@@ -322,7 +303,6 @@ STRINGS = {
         "settings.reset.confirm.title": "設定をリセット",
         "settings.reset.confirm.body": "【 リセットされる項目（カッコ内が既定）】\n　\n・自動採番を使用する（オン）\n・プレフィックス名とアペンド名（CG_ ／ 空欄）\n・外観モード（自動）\n・生成パラメータの表示項目（オフ）\n・フォルダ取り込み時の順序（毎回確認）\n・読書モード（左開き、中央詰め表示オフ）\n\n　\n\n【 リセットされない項目 】\n　\n・データベースの情報\n・保存（更新）済みの画像データの情報\n\n　\n\nこの操作は取り消せません。よろしいですか？",
 
-        # --- 設定ダイアログ: データベース ---
         "settings.database.title": "データベース",
         "settings.database.current_label": "現在使用中: {db_name}",
         "settings.database.open_folder_tooltip": "データベースの保存フォルダを開く",
@@ -351,7 +331,6 @@ STRINGS = {
         "settings.database.no_sync_history.title": "同期履歴",
         "settings.database.no_sync_history.body": "記録されている同期履歴はまだありません。",
 
-        # --- データベースが見つかりませんダイアログ ---
         "dialog.db_missing.title": "データベースが見つかりません",
         "dialog.db_missing.create_new_radio": "新しい空のデータベースを作成する",
         "dialog.db_missing.sample_data_checkbox": "サンプルデータを読み込む",
@@ -368,7 +347,6 @@ STRINGS = {
         "dialog.db_missing.import_done.body": "新しいデータベースを作成しデータをコピーしました。データベース名は {db_name} です。",
         "dialog.db_missing.sample_import_failed.title": "サンプル画像の追加に失敗しました",
 
-        # --- メイン画面: 上部バー ---
         "main.tooltip.toggle_all_fields_hide": "すべての編集欄・取り込み形式欄をまとめて非表示にする",
         "main.tooltip.toggle_all_fields_show": "すべての編集欄・取り込み形式欄をまとめて表示する",
         "main.tooltip.help": "ヘルプ（基本的な操作方法を表示します）",
@@ -415,7 +393,6 @@ STRINGS = {
         "main.tooltip.panel_flip_mirrored": "パネル配置を反転（現在: 反転表示）",
         "main.tooltip.panel_flip_standard": "パネル配置を反転（現在: 標準表示）",
 
-        # --- メタデータ編集エリア ---
         "metadata.filename.header": "ファイル名",
         "metadata.filename.tooltip": "パソコン上の実際のファイル名です。変更すると「変更を保存」時にファイル自体の名前が変わります。",
         "metadata.filename.multi_selected": "[複数選択中]",
@@ -459,7 +436,6 @@ STRINGS = {
         "metadata.tooltip.clear_field": "この欄をクリア（「変更を保存」を押すまでは確定しません）",
         "metadata.tooltip.copy_seed": "Seedの値をコピー",
 
-        # --- 右クリックメニュー（画像・フォルダ） ---
         "menu.reveal_finder": "Finderで表示",
         "menu.reveal_explorer": "エクスプローラーで表示",
         "menu.reveal_file_manager": "ファイルマネージャーで表示",
@@ -477,7 +453,6 @@ STRINGS = {
         "menu.expand_all_folders": "すべてのフォルダを開く",
         "menu.collapse_all_folders": "すべてのフォルダを折りたたむ",
 
-        # --- ステータスバーの一時メッセージ ---
         "status.files_copied": "{count} 件のファイルをコピーしました（Cmd+V / Ctrl+V で貼り付け可能）",
         "status.file_path_copied": "ファイルパスをコピーしました",
         "status.sequence_rename_export_done": "{context}{count} 件を連番でリネームして書き出しました。",
@@ -509,13 +484,11 @@ STRINGS = {
         "confirm.folder_delete.title": "フォルダをデータベースから削除",
         "confirm.folder_delete.body": "フォルダ「{folder_name}」（画像 {count} 件）をデータベースから削除しますか？\n\n・画像リストから表示されなくなり、以後の同期（自動再スキャン）の対象からも外れます\n・ディスク上の実ファイルは削除されません\n・改めて「フォルダを取り込む」で取り込み直せば、再び同期対象になります",
 
-        # --- 進捗ダイアログ ---
         "progress.import_title": "画像取り込みの進捗",
         "progress.sync_title": "同期の進捗",
         "progress.processing_item": "処理中 ({current} / {total} 件):\n{file_name}",
         "progress.scanning_folder": "フォルダをスキャン中:\n{folder}",
 
-        # --- 通知ポップアップ（本文） ---
         "notify.csv_write_failed": "CSVの書き込みに失敗しました:\n{error}",
         "notify.sync_history_export_done": "{count} 件の同期履歴をCSVに書き出しました。\n\n{save_path}",
         "notify.export_images_done": "{count} 件の画像情報をCSVに書き出しました。\n\n{save_path}",
@@ -971,7 +944,6 @@ def detect_os_language():
     try:
         lang_code, _ = locale.getlocale()
         if not lang_code:
-            # macOSでは getlocale() が None を返すことがあるため getdefaultlocale 相当を試す
             lang_code = locale.getdefaultlocale()[0]
         if lang_code and lang_code.lower().startswith("ja"):
             return "ja"

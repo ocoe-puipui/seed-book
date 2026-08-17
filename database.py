@@ -6,20 +6,15 @@ import json
 import shutil
 from datetime import datetime
 
-# データベース・設定ポインタの保存先は ~/Library/Application Support/AIImageViewer。
-# アプリ本体（.app / スクリプト）の外に置くことで、.app化してもファイルが消えたり
-# 書き込めなくなったりしない（PROJECT_DIR依存の旧設計からの移行、2026-08-04〜）。
-# 旧バージョンではプロジェクトフォルダ内に直接置いていたため、初回アクセス時に
-# 自動移行（コピー、旧ファイルは残したまま）を行う。
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_SUPPORT_DIR = os.path.join(
     os.path.expanduser("~"), "Library", "Application Support", "AIImageViewer"
 )
 DB_FILENAME_PATTERN = re.compile(r"^image_metadata(\d*)\.db$")
 
-DB_NAME = "image_metadata.db"  # 起動時に resolve_current_db_name() で実際に使うものへ更新される
+DB_NAME = "image_metadata.db"
 
-_db_dir_ready = False  # get_db_dir() の初回移行処理を一度だけ行うためのフラグ
+_db_dir_ready = False
 
 
 def get_db_dir():
@@ -32,7 +27,6 @@ def get_db_dir():
     if not _db_dir_ready:
         _db_dir_ready = True
         try:
-            # 新しい保存先にまだデータベースが1つも無い場合のみ、旧プロジェクトフォルダから移行する
             existing_new = glob.glob(os.path.join(APP_SUPPORT_DIR, "image_metadata*.db"))
             if not existing_new:
                 legacy_dbs = glob.glob(os.path.join(PROJECT_DIR, "image_metadata*.db"))
@@ -46,7 +40,6 @@ def get_db_dir():
                 if os.path.exists(legacy_pointer) and not os.path.exists(new_pointer):
                     shutil.copy2(legacy_pointer, new_pointer)
         except OSError as e:
-            # 移行に失敗しても起動は継続する（新しい場所に空のDBが作られるだけになる）
             print(f"Database migration warning: {e}")
 
     return APP_SUPPORT_DIR
@@ -164,16 +157,13 @@ def import_external_database(source_path):
     original_db_name = DB_NAME
     try:
         DB_NAME = filename
-        init_db()  # 既存DBのマイグレーション（列追加等）をコピー後のファイルにも適用する
+        init_db()
     finally:
         DB_NAME = original_db_name
 
     return filename
 
 
-# app_settings に保存する設定項目の既定値を一箇所にまとめたもの。
-# 「設定のリセット」機能はこの辞書をそのまま app_settings へ書き戻すだけでよいため、
-# 今後オプションメニューに設定項目を追加する際は、ここに既定値を足すだけで対応できる。
 DEFAULT_APP_SETTINGS = {
     "sequence_prefix": "CG_",
     "sequence_digits": "5",
@@ -185,21 +175,19 @@ DEFAULT_APP_SETTINGS = {
     "show_param_seed": "0",
     "show_param_size": "0",
     "theme_mode": "auto",
-    "import_order_mode": "confirm",  # "confirm"（毎回確認）または "auto"（前回の順序を自動選択）
+    "import_order_mode": "confirm",
     "last_import_order": "filename_asc",
-    "allow_duplicate_content": "0",  # "0"（既定）: 内容が同一の画像は取り込まない / "1": 取り込む
-    "last_sort_index": "0",  # cmb_sortの選択中インデックス（並べ替え条件の記憶用）
+    "allow_duplicate_content": "0",
+    "last_sort_index": "0",
     "last_sort_dir": "ASC",
-    "last_group_mode": "none",  # "none"（既定） / "folder"。フォルダ別グループ表示のON/OFFを記憶する
-    "collapsed_folders": "[]",  # 折りたたんでいるフォルダ名の一覧（JSON配列）
-    "use_sequential_naming": "1",  # "1"（既定）: 連番を付与 / "0": 実際のファイル名をそのまま「名前」にする
-    "rename_show_edit_dialog": "0",  # "0"（既定）: 一括リネーム／一括で書き出す実行前の確認は確認ポップアップのみ
-                                       # "1": 実行前に、生成される名前を1件ずつ確認・修正できる編集画面を開く（未実装、設定のみ先行）
-    "reading_mode_default_pattern": "A",  # "A": 左開き（既定） / "B": 右開き
-    "reading_mode_theme": "dark",  # "dark"（既定） / "light"。アプリ本体のテーマとは独立
-    "reading_mode_center_align": "0",  # "0"（既定）: 各ページを担当エリア内で中央揃え / "1": 中央詰め（左右のページを画面中央で突き合わせる）
-    "folder_group_order": "[]",  # フォルダ別グループ表示での、フォルダの並び順（JSON配列、フォルダ名を先頭から順に）。
-                                   # 未登録のフォルダは末尾にアルファベット順で追加される。
+    "last_group_mode": "none",
+    "collapsed_folders": "[]",
+    "use_sequential_naming": "1",
+    "rename_show_edit_dialog": "0",
+    "reading_mode_default_pattern": "A",
+    "reading_mode_theme": "dark",
+    "reading_mode_center_align": "0",
+    "folder_group_order": "[]",
 }
 
 
@@ -221,15 +209,12 @@ def init_db():
         )
     """)
     
-    # 既存DB（旧バージョン）に updated_at 列が無い場合はマイグレーションする
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "updated_at" not in existing_columns:
         cursor.execute("ALTER TABLE images ADD COLUMN updated_at TIMESTAMP")
-        # この時点ではまだ列名は created_at のまま（下のリネーム処理より前に実行されるため）
         cursor.execute("UPDATE images SET updated_at = created_at WHERE updated_at IS NULL")
     
-    # 取り込んだフォルダのパスを記憶しておくテーブル（同期ボタン用）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS folders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,43 +222,25 @@ def init_db():
         )
     """)
     
-    # 既存DBに file_hash 列が無い場合はマイグレーションする（重複画像検出用）
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "file_hash" not in existing_columns:
         cursor.execute("ALTER TABLE images ADD COLUMN file_hash TEXT")
     
-    # 内容が同一の画像（file_hashが同じ）の重複登録防止は、以前はここでユニークインデックスによって
-    # データベース側で強制していたが、「取り込み時に重複を許可する」選択肢を設けるにあたり、
-    # 常に強制ブロックする方式では対応できなくなったため、insert_image() 側でのアプリケーション
-    # レベルの判定に切り替えた。既存のインデックスが残っている場合は削除する。
     cursor.execute("DROP INDEX IF EXISTS idx_images_file_hash")
-    # 通常の検索性能のため、ユニーク制約なしの通常インデックスとして残す
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_images_file_hash_lookup ON images(file_hash)")
     
-    # 既存DBに imported_at 列（真の取り込み日時。並び替え用）が無い場合はマイグレーションする。
-    # 旧 created_at 列（今の file_mtime）はファイル自体の更新日時（mtime）であり、
-    # 実際にこのアプリへ取り込んだ日時とは異なるため、「取り込み日時」での並び替えには
-    # 別途この列を使う。既存データには正確な取り込み日時が残っていないため、
-    # 代わりに旧 created_at の値で埋めておく。
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "imported_at" not in existing_columns:
         cursor.execute("ALTER TABLE images ADD COLUMN imported_at TIMESTAMP")
-        # この時点ではまだ列名は created_at のまま（下のリネーム処理より前に実行されるため）
         cursor.execute("UPDATE images SET imported_at = created_at WHERE imported_at IS NULL")
     
-    # 既存DBの created_at 列を file_mtime へリネームする。
-    # 実体は常に「ファイル自体の更新日時（mtime）」であり「作成日時」という名前は紛らわしいため、
-    # 内部的な列名は file_mtime に統一する（画面上の「作成:」ラベル表示は変更しない）。
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "created_at" in existing_columns and "file_mtime" not in existing_columns:
         cursor.execute("ALTER TABLE images RENAME COLUMN created_at TO file_mtime")
     
-    # 既存DBに file_size 列（ファイルサイズ順の並び替え用）が無い場合はマイグレーションする。
-    # 既存データにはサイズが記録されていないため、ファイルが実際に存在するものだけ
-    # その場でサイズを取得して埋めておく（見つからないファイルはNULLのままにする）。
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "file_size" not in existing_columns:
@@ -288,9 +255,6 @@ def init_db():
                 except OSError:
                     pass
     
-    # 削除された画像のファイルパスを記憶しておくテーブル（同期の除外リスト用）。
-    # ここに載っているパスは、「同期」実行時にスキップされ、勝手に復活しない。
-    # 「フォルダを取り込む」「画像ファイルを取り込む」で明示的に再度選ばれた場合のみ、解除される。
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS excluded_paths (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,23 +262,17 @@ def init_db():
         )
     """)
     
-    # 既存DBに is_locked 列（編集ロック機能用）が無い場合はマイグレーションする。
-    # ロックされた画像は、削除やDB内の情報変更（名前・評価・プロンプト等）ができなくなる。
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "is_locked" not in existing_columns:
         cursor.execute("ALTER TABLE images ADD COLUMN is_locked INTEGER DEFAULT 0")
         cursor.execute("UPDATE images SET is_locked = 0 WHERE is_locked IS NULL")
 
-    # 既存DBに memo 列（画像ごとのメモ欄。プロンプト等とは独立し、アプリ内だけで使う。2026-08-16〜）が
-    # 無い場合はマイグレーションする。検索対象にも含める。
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "memo" not in existing_columns:
         cursor.execute("ALTER TABLE images ADD COLUMN memo TEXT")
 
-    # アプリ設定を保存する汎用のキーバリューテーブル。
-    # 連番採番カウンタ、命名規則、並び替え条件の記憶、テーマ設定などに使う。
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
@@ -322,8 +280,6 @@ def init_db():
         )
     """)
 
-    # 同期処理で検出した「見つからないフォルダ／画像」「取り込みエラー」の履歴を記録するテーブル。
-    # 直近 MAX_SYNC_HISTORY_ROWS 件を超えた分は、古いものから自動的に削除する（2026-08-14〜）。
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sync_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -334,10 +290,6 @@ def init_db():
         )
     """)
 
-    # 「同じ問題について、初回は同期結果のポップアップで警告し、2回目以降はポップアップに
-    # 出さず履歴のみに記録する」ための状態管理テーブル。(category, target_path) の組み合わせごとに
-    # warned=1 なら「既に警告済み」を意味する。対象（フォルダ・画像・エラー）が一度でも解消された
-    # 場合は warned=0 に戻すため、その後また同じ問題が起きれば改めて警告される。
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sync_alert_state (
             category TEXT,
@@ -347,11 +299,6 @@ def init_db():
         )
     """)
 
-    # フォルダ単位で、自動採番のプレフィックス・桁数・アペンドをアプリ全体の既定値から上書きするための
-    # テーブル（2026-08-15〜）。folder_path（実フォルダの絶対パス）ごとに1件のみ。
-    # 行が無いフォルダは、これまで通りapp_settingsの既定ルールを使う。
-    # ここでの上書きは「以後の新規取り込み」にのみ適用し、既存ファイルの一括リネームは行わない
-    # （実ファイルを意図せず変更しないという既存の方針を踏襲）。
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS folder_naming_rules (
             folder_path TEXT PRIMARY KEY,
@@ -361,8 +308,6 @@ def init_db():
         )
     """)
 
-    # DEFAULT_APP_SETTINGS のうち、まだ app_settings に存在しないキーだけを初期値で埋める。
-    # 既にユーザーが変更済みの値は上書きしない（新規インストール時にのみ意味を持つ）。
     for key, value in DEFAULT_APP_SETTINGS.items():
         cursor.execute(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
@@ -407,8 +352,6 @@ def delete_folder_and_images(folder_path):
         cursor.executemany("DELETE FROM images WHERE id = ?", [(i,) for i in target_ids])
 
     cursor.execute("DELETE FROM folders WHERE path = ?", (folder_path,))
-    # このフォルダに関する警告済みフラグも残らないようにしておく（再取り込み時に
-    # 古い警告状態を引きずらないため）
     cursor.execute(
         "DELETE FROM sync_alert_state WHERE target_path = ? AND category IN ('folder_missing', 'import_error')",
         (folder_path,)
@@ -437,7 +380,6 @@ def remove_missing_images():
     return [f_path for _, f_path in missing]
 
 
-# 同期履歴に保持する最大件数。これを超えた分は古いものから自動的に削除する。
 MAX_SYNC_HISTORY_ROWS = 500
 
 
@@ -742,9 +684,6 @@ def generate_next_sequential_name(folder_name=None, folder_path=None):
     if row:
         next_num = int(row[0])
     else:
-        # このプレフィックス＋アペンドの組み合わせでの採番がまだ無い場合、
-        # 旧方式（単一の共通カウンタ）の値が残っていれば、一度だけそれを引き継いで無駄な巻き戻りを防ぐ。
-        # 引き継いだ後は旧カウンタを削除し、以後は他の組み合わせに誤って引き継がれないようにする。
         cursor.execute("SELECT value FROM app_settings WHERE key = 'next_sequence_number'")
         legacy_row = cursor.fetchone()
         if legacy_row:

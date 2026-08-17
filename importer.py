@@ -92,7 +92,6 @@ def extract_ai_metadata(file_path):
         with Image.open(file_path) as img:
             info = img.info
             
-            # Stable Diffusion WebUI（Automatic1111 / Forge）など、A1111互換形式
             if 'parameters' in info:
                 params = info['parameters']
                 other_metadata = params
@@ -105,17 +104,11 @@ def extract_ai_metadata(file_path):
                 else:
                     prompt = params.split("\n")[0].strip()
                     
-            # NovelAIなどの場合
             elif 'Description' in info:
                 prompt = info['Description']
                 if 'Comment' in info:
                     other_metadata = info['Comment']
             
-            # ComfyUIの場合：workflow（UI上のノード構成）／prompt（実行用APIフォーマット）が
-            # それぞれJSON文字列として埋め込まれる。ワークフローの構成はユーザーごとに大きく異なり、
-            # どのノードが「プロンプト」に相当するかを確実に判別する方法が無いため、
-            # 独自に解釈・抜き出しはせず、情報を失わないよう生のJSONをそのまま
-            # 「その他パラメータ」欄に保存する。プロンプト欄には、その旨を案内するメッセージを入れる。
             elif 'workflow' in info or 'prompt' in info:
                 parts = []
                 if 'prompt' in info:
@@ -127,8 +120,6 @@ def extract_ai_metadata(file_path):
                           "プロンプトの自動抽出には対応していません。"
                           "「その他パラメータ / メタデータ / EXIF情報」欄でワークフロー全文をご確認ください。")
 
-            # AI生成ツール特有のメタデータが見つからなかった場合、カメラ由来のEXIF情報が
-            # あれば「その他パラメータ / メタデータ / EXIF情報」欄に整形して表示する。
             else:
                 exif_text = _format_exif(img)
                 if exif_text:
@@ -188,7 +179,6 @@ def import_images_from_folder(folder_path, progress_callback=None, cancel_check=
     """
     valid_extensions = _normalize_extensions(allowed_extensions)
     
-    # サブフォルダは対象外。指定フォルダ直下のファイルのみを取り込み対象とする。
     all_files = []
     try:
         with os.scandir(folder_path) as entries:
@@ -228,7 +218,6 @@ def sort_files_by_order(file_paths, order):
     未知のキーが渡された場合はファイル名順にフォールバックする。
     """
     if order == "filename_desc":
-        # ファイル名順の判定基準をそのまま反転させた単純な逆順
         return sorted(file_paths, key=lambda p: os.path.basename(p), reverse=True)
     elif order == "created_asc":
         return sorted(file_paths, key=get_file_creation_time)
@@ -239,8 +228,6 @@ def sort_files_by_order(file_paths, order):
     elif order == "modified_desc":
         return sorted(file_paths, key=os.path.getmtime, reverse=True)
     else:
-        # ファイル名順（Unicodeのコードポイント順は、記号 < 数字 < 英字 < かな < 漢字 の
-        # 優先順とおおむね一致するため、標準の文字列比較で十分に自然な並びになる）
         return sorted(file_paths, key=lambda p: os.path.basename(p))
 
 
@@ -276,8 +263,6 @@ def _import_file_list(file_paths, progress_callback=None, cancel_check=None, ski
     """
     total_count = len(file_paths)
     
-    # 既にDBに登録済みのパスは事前に把握しておき、重い処理（メタデータ抽出・ハッシュ計算）を
-    # スキップすることで、2回目以降の同期を大幅に高速化する
     existing_paths = database.get_all_file_paths()
     excluded_paths = database.get_excluded_paths() if skip_excluded else set()
     
@@ -292,12 +277,10 @@ def _import_file_list(file_paths, progress_callback=None, cancel_check=None, ski
             cancelled = True
             break
         
-        # アプリ側のプログレスバーに進捗を伝える (現在のインデックス, 総数, ファイル名)
         if progress_callback:
             progress_callback(idx + 1, total_count, os.path.basename(file_path))
         
         if not skip_excluded:
-            # 明示的な取り込み操作なので、除外リストに載っていれば解除する
             database.remove_excluded_path(file_path)
         
         if file_path in existing_paths:
@@ -309,9 +292,6 @@ def _import_file_list(file_paths, progress_callback=None, cancel_check=None, ski
             continue
             
         try:
-            # 新規取り込み画像の「名前」欄は、設定で連番命名規則がオンの場合は連番（例: CG_001）、
-            # オフの場合は実際のファイル名（拡張子を除く）をそのまま初期値にする。
-            # いずれの場合も、実際のファイルパスは file_path 側にそのまま残るため、情報は失われない。
             if database.get_setting("use_sequential_naming", "1") == "1":
                 _folder_dir = os.path.dirname(file_path)
                 file_name = database.generate_next_sequential_name(
@@ -326,7 +306,6 @@ def _import_file_list(file_paths, progress_callback=None, cancel_check=None, ski
             file_mtime = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
             file_size = stat.st_size
             
-            # DBに登録（同一内容の画像が既に別パスで登録済みの場合はFalseが返る）
             was_inserted = database.insert_image(
                 file_path=file_path,
                 file_name=file_name,
