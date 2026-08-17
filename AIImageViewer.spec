@@ -35,6 +35,10 @@
 block_cipher = None
 
 # バージョン番号は version.py を単一の管理場所とする（app.py の画面左上表示と共通）。
+# PyInstallerがspecファイルを実行する際、このファイルのあるディレクトリが
+# 自動的にはsys.pathに含まれないため、明示的に追加してからインポートする。
+import sys
+sys.path.insert(0, SPECPATH)
 from version import APP_VERSION
 
 a = Analysis(
