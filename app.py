@@ -2605,15 +2605,18 @@ class DatabaseMissingDialog(QDialog):
 class AIImageViewerApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_lang = i18n.resolve_language(database.get_setting("language", "auto"))
         self.setWindowTitle("Seed Book")
         self.setGeometry(100, 100, 1200, 850)
-        
+
+        self.current_lang = i18n.detect_os_language()
+
         database.resolve_current_db_name()
         self._resolve_missing_database()
         database.init_db()
         if getattr(self, "_pending_sample_import", False):
             self._import_sample_data()
+
+        self.current_lang = i18n.resolve_language(database.get_setting("language", "auto"))
 
         self.statusBar().setContentsMargins(SPACING_LG, 0, SPACING_LG, 6)
         self.status_message_label = QLabel("")

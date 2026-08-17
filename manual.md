@@ -14,8 +14,7 @@
 
 ## 1. UI Names and Roles
 
-<img width="1311" height="1071" alt="630252393-c3fd22de-0f36-4f6f-b675-1a8a1729dab1" src="https://github.com/user-attachments/assets/492bba80-7a8c-4639-afcb-d614f5440550" />
-
+<img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/1586c6ca-c4aa-4d75-b679-9a3bf2cb1b16" />
 
 
 This app consists of two panes — the "List Display Area" on the left and the "Edit Area" on the right — plus a "Settings" screen.
@@ -148,8 +147,7 @@ A mode that displays two images from the same folder as the selected image side 
 
 Opened from the gear icon at the top right of the screen.
 
-<img width="592" height="1074" alt="630252431-fad7b7a0-0a4d-46b8-acd6-9dc4bcbbd72f" src="https://github.com/user-attachments/assets/b6b1ae0c-ec3a-40ec-b726-b95142df56bc" />
-
+<img width="296" height="537" alt="UI4" src="https://github.com/user-attachments/assets/98ea97fb-de05-434d-ab7c-f3796c297be4" />
 
 
 

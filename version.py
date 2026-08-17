@@ -6,4 +6,4 @@ CFBundleVersion）の両方からここを参照する。リリースごとに�
 両方に反映される。
 """
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
