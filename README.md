@@ -2,7 +2,7 @@
 
 [日本語版はこちら / Japanese README is here](./README.ja.md)
 
-<img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/c3fd22de-0f36-4f6f-b675-1a8a1729dab1" />
+<img width="1311" height="1071" alt="630252393-c3fd22de-0f36-4f6f-b675-1a8a1729dab1" src="https://github.com/user-attachments/assets/dcb8eb3a-71dd-4340-a73e-decf48a999e6" />
 
 ## Seed Book (AI image browser)
 A desktop app for centrally managing and viewing images — mainly AI-generated ones from tools like Stable Diffusion — along with their metadata (prompts, negative prompts, model parameters, etc.). Optimized for Stability Matrix output, but works well alongside any file manager.
@@ -232,7 +232,10 @@ This project's own code is proprietary (All Rights Reserved) for now — see [LI
 
 ---
 <p>
-<img width="700" height="700" alt="UI3" src="https://github.com/user-attachments/assets/4021a98a-15d2-4e22-8e2c-b1d1f4d2f05d" /><img width="300" height="700" alt="UI4" src="https://github.com/user-attachments/assets/fad7b7a0-0a4d-46b8-acd6-9dc4bcbbd72f" />
+<img width="1311" height="1071" alt="630252427-4021a98a-15d2-4e22-8e2c-b1d1f4d2f05d" src="https://github.com/user-attachments/assets/fecfdc09-79e5-42d5-ba1e-ccc3e6ae4a38" />
+<img width="592" height="1074" alt="630252431-fad7b7a0-0a4d-46b8-acd6-9dc4bcbbd72f" src="https://github.com/user-attachments/assets/2fd820b6-402a-4055-bc52-cc7c7f2166ee" />
+
+
 </p>
 <br>
 THANKS!
