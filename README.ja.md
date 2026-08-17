@@ -2,7 +2,7 @@
 
 [English README is here / 英語版はこちら](./README.md)
 
-<img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/c3fd22de-0f36-4f6f-b675-1a8a1729dab1" />
+<img width="1311" height="1071" alt="630252393-c3fd22de-0f36-4f6f-b675-1a8a1729dab1" src="https://github.com/user-attachments/assets/1954ef52-1a9d-4e2c-8fe5-19f47595ec19" />
 
 ## Seed Book (AI image browser)
 生成AI（Stable Diffusionなど）で作成された画像と、そのメタデータ（プロンプト、モデルパラメータ等）を一元管理・閲覧するデスクトップアプリです。Stability Matrix向けに最適化していますが、他のファイル管理ツールとの併用にも便利です。
@@ -221,7 +221,9 @@ Finder等から画像リストへの直接ドラッグ&ドロップは動作が�
 
 ---
 <p>
-<img width="700" height="700" alt="UI3" src="https://github.com/user-attachments/assets/4021a98a-15d2-4e22-8e2c-b1d1f4d2f05d" /><img width="300" height="700" alt="UI4" src="https://github.com/user-attachments/assets/fad7b7a0-0a4d-46b8-acd6-9dc4bcbbd72f" />
+<img width="1311" height="1071" alt="630252427-4021a98a-15d2-4e22-8e2c-b1d1f4d2f05d" src="https://github.com/user-attachments/assets/abc80327-41a2-4052-9932-a514bf84f654" />
+<img width="592" height="1074" alt="630252431-fad7b7a0-0a4d-46b8-acd6-9dc4bcbbd72f" src="https://github.com/user-attachments/assets/1db90afb-796d-4b73-8782-927726bf2fdc" />
+
 </p>
 <br>
 THANKS!
