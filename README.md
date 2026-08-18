@@ -1,4 +1,4 @@
-2026/08/17 (v1.3.1)
+2026/08/18 (v1.3.2)
 
 [日本語版はこちら / Japanese README is here](./README.ja.md)
 

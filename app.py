@@ -1480,9 +1480,9 @@ class FullscreenPreviewWindow(QWidget):
         self.main_app.exit_fullscreen_preview()
 
 
-GITHUB_REPO_URL = "https://github.com/ocoe-puipui/AI-Image-Viewer"
-MANUAL_URL_EN = "https://github.com/ocoe-puipui/AI-Image-Viewer/blob/main/manual.md"
-MANUAL_URL_JA = "https://github.com/ocoe-puipui/AI-Image-Viewer/blob/main/manual.ja.md"
+GITHUB_REPO_URL = "https://github.com/ocoe-puipui/seed-book"
+MANUAL_URL_EN = "https://github.com/ocoe-puipui/seed-book/blob/main/manual.md"
+MANUAL_URL_JA = "https://github.com/ocoe-puipui/seed-book/blob/main/manual.ja.md"
 
 
 def get_manual_url(lang):
