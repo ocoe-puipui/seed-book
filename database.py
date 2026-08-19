@@ -188,6 +188,12 @@ DEFAULT_APP_SETTINGS = {
     "reading_mode_theme": "dark",
     "reading_mode_center_align": "0",
     "folder_group_order": "[]",
+    "browse_mode": "images",
+    "view_mode": "list",
+    "grid_tile_size": "medium",
+    "preview_size_mode": "standard",
+    "metadata_fields_display": "",
+    "metadata_section_order": "",
 }
 
 
@@ -308,6 +314,33 @@ def init_db():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS albums (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS album_images (
+            album_id INTEGER NOT NULL,
+            image_id INTEGER NOT NULL,
+            added_at TEXT,
+            PRIMARY KEY (album_id, image_id),
+            FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
+            FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS album_naming_rules (
+            album_id INTEGER PRIMARY KEY,
+            prefix TEXT,
+            digits INTEGER,
+            append TEXT
+        )
+    """)
+
     for key, value in DEFAULT_APP_SETTINGS.items():
         cursor.execute(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
@@ -350,6 +383,7 @@ def delete_folder_and_images(folder_path):
 
     if target_ids:
         cursor.executemany("DELETE FROM images WHERE id = ?", [(i,) for i in target_ids])
+        cursor.executemany("DELETE FROM album_images WHERE image_id = ?", [(i,) for i in target_ids])
 
     cursor.execute("DELETE FROM folders WHERE path = ?", (folder_path,))
     cursor.execute(
@@ -374,6 +408,7 @@ def remove_missing_images():
 
     if missing:
         cursor.executemany("DELETE FROM images WHERE id = ?", [(i,) for i, _ in missing])
+        cursor.executemany("DELETE FROM album_images WHERE image_id = ?", [(i,) for i, _ in missing])
         conn.commit()
 
     conn.close()
@@ -568,9 +603,12 @@ def set_setting(key, value):
     conn.commit()
     conn.close()
 
-def resolve_naming_placeholders(text, folder_name=None):
+def resolve_naming_placeholders(text, folder_name=None, album_name=None):
     """プレフィックス／アペンド欄で使えるプレースホルダーを実際の値に置換する。
     {フォルダ名} / {folder name}: 取り込み・書き出し対象のフォルダ名（不明な場合は空文字）
+    {アルバム名} / {album name}: アルバム起点の操作（アルバム専用の自動採番）対象のアルバム名
+    （不明な場合は空文字。2026-08-20〜追加。アルバムは複数の実フォルダにまたがり得るため、
+    アルバム起点の操作では{フォルダ名}の代わりにこちらを使う想定）
     {日付} / {date}: 今日の日付（YYYYMMDD）
     表示言語（日本語UI／英語UI）に関わらず、どちらの表記のプレースホルダーも同じ意味として
     解決する（v1.3.0〜、英語UI対応に伴い、UI言語をまたいでも命名ルールが壊れないようにするため）。
@@ -580,6 +618,7 @@ def resolve_naming_placeholders(text, folder_name=None):
     today_str = datetime.now().strftime("%Y%m%d")
     resolved = text.replace("{日付}", today_str).replace("{date}", today_str)
     resolved = resolved.replace("{フォルダ名}", folder_name or "").replace("{folder name}", folder_name or "")
+    resolved = resolved.replace("{アルバム名}", album_name or "").replace("{album name}", album_name or "")
     return resolved
 
 def get_folder_naming_rule(folder_path):
@@ -619,6 +658,166 @@ def clear_folder_naming_rule(folder_path):
     cursor.execute("DELETE FROM folder_naming_rules WHERE folder_path = ?", (folder_path,))
     conn.commit()
     conn.close()
+
+def get_all_albums():
+    """全アルバムを、並び順（sort_order→作成順）でリストで返す。
+    戻り値の各要素は {"id", "name", "sort_order", "image_count"} の辞書。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name, a.sort_order, COUNT(ai.image_id)
+        FROM albums a
+        LEFT JOIN album_images ai ON ai.album_id = a.id
+        GROUP BY a.id
+        ORDER BY a.sort_order, a.id
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1], "sort_order": r[2], "image_count": r[3]} for r in rows]
+
+def add_album(name):
+    """新しいアルバムを作成し、作成したアルバムのidを返す。
+    並び順（sort_order）は既存の最大値+1とし、常に一覧の末尾に追加する。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM albums")
+    next_order = cursor.fetchone()[0]
+    cursor.execute(
+        "INSERT INTO albums (name, sort_order, created_at) VALUES (?, ?, ?)",
+        (name, next_order, datetime.now().isoformat())
+    )
+    new_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return new_id
+
+def rename_album(album_id, new_name):
+    """アルバム名を変更する。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("UPDATE albums SET name = ? WHERE id = ?", (new_name, album_id))
+    conn.commit()
+    conn.close()
+
+def delete_album(album_id):
+    """アルバムを削除する（アルバム内の画像自体は削除しない。あくまで「入れ物」を消すだけ）。
+    sqlite3はFOREIGN KEY制約を既定で強制しないため、album_images・album_naming_rulesの
+    紐付けも明示的に消す。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM album_images WHERE album_id = ?", (album_id,))
+    cursor.execute("DELETE FROM album_naming_rules WHERE album_id = ?", (album_id,))
+    cursor.execute("DELETE FROM albums WHERE id = ?", (album_id,))
+    conn.commit()
+    conn.close()
+
+def get_album_name(album_id):
+    """指定idのアルバム名を返す。存在しない場合はNone
+    （{アルバム名}プレースホルダーの解決や、通知文言の組み立てに使う）。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM albums WHERE id = ?", (album_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def get_album_naming_rule(album_id):
+    """指定アルバム専用の命名ルール上書き設定を返す。未設定の場合はNone
+    （＝アプリ全体の既定ルールを使う）を返す。戻り値は {"prefix", "digits", "append"} の辞書。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT prefix, digits, append FROM album_naming_rules WHERE album_id = ?",
+        (album_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {"prefix": row[0] or "", "digits": int(row[1]) if row[1] else 5, "append": row[2] or ""}
+
+def set_album_naming_rule(album_id, prefix, digits, append):
+    """指定アルバム専用の命名ルール上書きを保存する（既存があれば更新）。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO album_naming_rules (album_id, prefix, digits, append) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(album_id) DO UPDATE SET prefix = excluded.prefix, digits = excluded.digits, append = excluded.append",
+        (album_id, prefix, digits, append)
+    )
+    conn.commit()
+    conn.close()
+
+def clear_album_naming_rule(album_id):
+    """指定アルバム専用の命名ルール上書きを削除し、アプリ全体の既定ルールに戻す。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM album_naming_rules WHERE album_id = ?", (album_id,))
+    conn.commit()
+    conn.close()
+
+def set_album_order(ordered_album_ids):
+    """アルバム一覧の並び順をまとめて更新する（サイドバーでの手動並べ替え用）。
+    ordered_album_ids はアルバムidのリストで、先頭が一覧の最上部になる。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.executemany(
+        "UPDATE albums SET sort_order = ? WHERE id = ?",
+        [(order, album_id) for order, album_id in enumerate(ordered_album_ids)]
+    )
+    conn.commit()
+    conn.close()
+
+def add_images_to_album(album_id, image_ids):
+    """複数の画像を、まとめて指定アルバムに追加する（既に追加済みの画像はそのまま・重複エラーにしない）。"""
+    if not image_ids:
+        return
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    now_str = datetime.now().isoformat()
+    cursor.executemany(
+        "INSERT OR IGNORE INTO album_images (album_id, image_id, added_at) VALUES (?, ?, ?)",
+        [(album_id, image_id, now_str) for image_id in image_ids]
+    )
+    conn.commit()
+    conn.close()
+
+def remove_images_from_album(album_id, image_ids):
+    """複数の画像を、まとめて指定アルバムから外す（画像自体・他のアルバムへの所属には影響しない）。"""
+    if not image_ids:
+        return
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.executemany(
+        "DELETE FROM album_images WHERE album_id = ? AND image_id = ?",
+        [(album_id, image_id) for image_id in image_ids]
+    )
+    conn.commit()
+    conn.close()
+
+def get_album_image_ids(album_id):
+    """指定アルバムに所属する画像idの集合（set）を返す。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("SELECT image_id FROM album_images WHERE album_id = ?", (album_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return {r[0] for r in rows}
+
+def get_albums_for_image(image_id):
+    """指定画像が所属している全アルバムを [{"id", "name"}, ...] で返す（右クリックメニューの
+    チェック表示・複数所属の確認用）。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name FROM albums a
+        JOIN album_images ai ON ai.album_id = a.id
+        WHERE ai.image_id = ?
+        ORDER BY a.sort_order, a.id
+    """, (image_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"id": r[0], "name": r[1]} for r in rows]
 
 def peek_next_sequence_number(prefix, append):
     """指定したプレフィックス＋アペンドの組み合わせで、次に採番される番号を取得する（消費しない・設定画面のプレビュー用）。
@@ -720,6 +919,38 @@ def set_collapsed_folders(folder_names):
     set_setting("collapsed_folders", json.dumps(sorted(folder_names), ensure_ascii=False))
 
 
+def get_collapsed_albums():
+    """折りたたんでいるアルバムidの一覧（set）を返す（get_collapsed_foldersと同じ考え方。
+    2026-08-20〜：アルバム表示も画像リスト側と同様、前回の展開/折りたたみ状態を記憶するように）。"""
+    raw = get_setting("collapsed_albums", "[]")
+    try:
+        ids = json.loads(raw)
+        if isinstance(ids, list):
+            return {int(x) for x in ids}
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return set()
+
+
+def set_collapsed_albums(album_ids):
+    """折りたたんでいるアルバムidの一覧を保存する。"""
+    set_setting("collapsed_albums", json.dumps(sorted(album_ids), ensure_ascii=False))
+
+
+def get_album_totals():
+    """アルバム表示中のリスト下部ステータス用に、「アルバムの総数」「アルバムに所属する
+    画像の総数（重複所属分は1件として数える）」を返す（2026-08-20〜）。
+    フォルダ表示側のステータスとは異なり、同期日時は概念上存在しないため含めない。"""
+    conn = sqlite3.connect(get_current_db_path())
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM albums")
+    album_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(DISTINCT image_id) FROM album_images")
+    image_count = cursor.fetchone()[0]
+    conn.close()
+    return album_count, image_count
+
+
 def get_folder_group_order():
     """フォルダ別グループ表示での、フォルダの並び順（フォルダ名のリスト）を返す。
     設定が壊れている・未設定の場合は空リストを返す（呼び出し側でアルファベット順にフォールバックする）。"""
@@ -765,6 +996,7 @@ def reset_database():
     cursor.execute("DELETE FROM excluded_paths")
     cursor.execute("DELETE FROM sync_history")
     cursor.execute("DELETE FROM sync_alert_state")
+    cursor.execute("DELETE FROM album_images")
     conn.commit()
     conn.close()
 

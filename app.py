@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import json
 import unicodedata
 import calendar
 import csv
@@ -8,13 +9,14 @@ import sqlite3
 import subprocess
 import platform
 import shutil
+import tempfile
 from collections import OrderedDict
 from datetime import datetime
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout,
                                QVBoxLayout, QPushButton, QFileDialog, QListWidget,
                                QListWidgetItem, QLabel, QTextEdit, QSplitter, QScrollArea, QMessageBox, QLineEdit, QComboBox, QProgressDialog,
                                QMenu, QAbstractItemView, QSizePolicy, QDialog, QSpinBox, QRadioButton, QGroupBox, QButtonGroup, QStyle, QCheckBox, QStackedWidget, QFrame, QSlider, QGridLayout, QSpacerItem, QStyledItemDelegate, QLayout,
-                               QTableWidget, QTableWidgetItem, QHeaderView)
+                               QTableWidget, QTableWidgetItem, QHeaderView, QInputDialog)
 from PySide6.QtGui import QPixmap, QIcon, QDrag, QGuiApplication, QColor, QDesktopServices, QPainter, QFontMetrics, QFont
 from PySide6.QtCore import QSize, Qt, QTimer, QMimeData, QUrl, QEvent, Signal, QByteArray, QRect, QPoint, QStandardPaths
 from PySide6.QtSvg import QSvgRenderer
@@ -65,6 +67,7 @@ DARK_COLORS = {
     "list_item_border": "#2a2a2a",
     "list_text": "#eeeeee",
     "group_header_bg": "#3a3a3a",
+    "group_header_bg_current": "#565656",
     "divider_color": "#4d4d4d",
     "preview_bg": "#1e1e1e",
     "preview_border": "#444444",
@@ -79,6 +82,8 @@ DARK_COLORS = {
     "caution_text": "#ffffff",
     "export_bg": "#2e7d4f",
     "export_text": "#ffffff",
+    "unsaved_bg": "#946611",
+    "unsaved_text": "#ffffff",
     "model_text": "#5fd7ff",
     "prompt_text": "#eeeeee",
     "metadata_text": "#aaaaaa",
@@ -106,6 +111,7 @@ LIGHT_COLORS = {
     "list_item_border": "#e5e5e5",
     "list_text": "#222222",
     "group_header_bg": "#e2e2e2",
+    "group_header_bg_current": "#c8c8c8",
     "divider_color": "#d0d0d0",
     "preview_bg": "#e6e6e6",
     "preview_border": "#c0c0c0",
@@ -120,6 +126,8 @@ LIGHT_COLORS = {
     "caution_text": "#ffffff",
     "export_bg": "#1e8449",
     "export_text": "#ffffff",
+    "unsaved_bg": "#c98a1c",
+    "unsaved_text": "#ffffff",
     "model_text": "#0a6ea1",
     "prompt_text": "#222222",
     "metadata_text": "#555555",
@@ -236,6 +244,17 @@ SVG_ICONS = {
     "dock_to_left": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M180-120q-24.75 0-42.37-17.63Q120-155.25 120-180v-600q0-24.75 17.63-42.38Q155.25-840 180-840h600q24.75 0 42.38 17.62Q840-804.75 840-780v600q0 24.75-17.62 42.37Q804.75-120 780-120H180Zm453-60h147v-600H633v600Zm-60 0v-600H180v600h393Zm60 0h147-147Z"/></svg>',
 
     "night_sight_auto": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M440-190q59 0 110.5-27.5T641-290q-129-8-220-95.5T330-600q0-17 2.5-34.5T338-669q-65 36-106.5 96T190-440q0 104.17 72.92 177.08Q335.83-190 440-190Zm0 60q-129 0-219.5-90.5T130-440q0-129 90.5-219.5T440-750q-26 32-38 70.5T390-600q0 104.17 72.92 177.08Q535.83-350 640-350q26 0 52-5.5t50-16.5q-24 106-108.5 174T440-130Zm118-394 125.54-356H762l126 356h-72l-28.3-80H658.3L630-524h-72Zm116-130h98l-49-155-49 155ZM421-387Z"/></svg>',
+
+    "language": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M323-111.5Q250-143 196-197t-85-127.5Q80-398 80-482t31-156.5Q142-711 196-765t127-84.5Q396-880 480-880t157 30.5Q710-819 764-765t85 126.5Q880-566 880-482t-31 157.5Q818-251 764-197t-127 85.5Q564-80 480-80t-157-31.5ZM480-138q35-36 58.5-82.5T577-331H384q14 60 37.5 108t58.5 85Zm-85-12q-25-38-43-82t-30-99H172q38 71 88 111.5T395-150Zm171-1q72-23 129.5-69T788-331H639q-13 54-30.5 98T566-151ZM152-391h159q-3-27-3.5-48.5T307-482q0-25 1-44.5t4-43.5H152q-7 24-9.5 43t-2.5 45q0 26 2.5 46.5T152-391Zm221 0h215q4-31 5-50.5t1-40.5q0-20-1-38.5t-5-49.5H373q-4 31-5 49.5t-1 38.5q0 21 1 40.5t5 50.5Zm275 0h160q7-24 9.5-44.5T820-482q0-26-2.5-45t-9.5-43H649q3 35 4 53.5t1 34.5q0 22-1.5 41.5T648-391Zm-10-239h150q-33-69-90.5-115T565-810q25 37 42.5 80T638-630Zm-254 0h194q-11-53-37-102.5T480-820q-32 27-54 71t-42 119Zm-212 0h151q11-54 28-96.5t43-82.5q-75 19-131 64t-91 115Z"/></svg>',
+
+    "add": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></svg>',
+
+    "yard": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M480-180q0-97-69.5-166.5T244-416q0 97 69.5 166.5T480-180Zm43.5-236.5Q540-433 540-460v-8q8 7 18 9t19 2q27 0 43.5-16.5t16.5-43.07q0-20.43-9-33.43t-24-24q15-6 24-21.39 9-15.4 9-35.93 0-26.68-16.5-43.18T577-691q-9 0-19 2t-18 9v-8q0-27-16.5-43.5T480-748q-27 0-43.5 16.5T420-688v8q-8-7-18-9t-19-2q-27 0-43.5 16.5T323-631.43q0 20.43 8.5 33.93T356-574q-16 7-24.5 22t-8.5 35q0 27 16.5 43.5T383-457q9 0 19.5-2t17.5-9v8q0 27 16.5 43.5T480-400q27 0 43.5-16.5Zm-99-102Q402-541 402-574q0-32.71 22.7-55.35Q447.41-652 480.2-652q32.8 0 55.3 22.65Q558-606.71 558-574q0 33-22.7 55.5-22.71 22.5-55.5 22.5-32.8 0-55.3-22.5ZM480-180q97 0 166.5-69.5T716-416q-97 0-166.5 69.5T480-180ZM140-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h680q24 0 42 18t18 42v680q0 24-18 42t-42 18H140Zm0-60h680v-680H140v680Zm0 0v-680 680Z"/></svg>',
+
+    # 2026-08-20〜） ---
+    "album_stack": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M480-120 40-360l84-64 356 200 356-200 84 64-440 240Zm0-172L40-532l440-240 440 240-440 240Zm0-292L172-760l308-176 308 176-308 176Z"/></svg>',
+
+    "dock_to_bottom": '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="{color}"><path d="M180-120q-24.75 0-42.37-17.63Q120-155.25 120-180v-600q0-24.75 17.63-42.38Q155.25-840 180-840h600q24.75 0 42.38 17.62Q840-804.75 840-780v600q0 24.75-17.62 42.37Q804.75-120 780-120H180Zm0-207v147h600v-147H180Zm0-60h600v-393H180v393Zm0 60v147-147Z"/></svg>',
 }
 
 
@@ -249,6 +268,19 @@ def normalize_search_text(text):
     if not text:
         return ""
     return unicodedata.normalize("NFKC", str(text)).lower()
+
+
+def _album_default_naming_text(text):
+    """アルバム作成・アルバム専用の自動採番ダイアログで、プレフィックス／アペンドの
+    初期値（＝アプリ全体の既定ルールの文字列）を表示する際に使う。既定ルールは元々
+    フォルダ取り込み向けに作られており{フォルダ名}を含みがちだが、アルバムは複数の実
+    フォルダにまたがり得て{フォルダ名}が実態に合わないため、初期表示だけ{アルバム名}に
+    置き換える（2026-08-20〜、要望対応：アルバム関連のダイアログで既定値が常に
+    「フォルダ名」表記のままだったのを修正）。ユーザーが既に保存したアルバム専用ルールの
+    文字列そのものは書き換えない（あくまで初期候補としての表示のみ）。"""
+    if not text:
+        return text
+    return text.replace("{フォルダ名}", "{アルバム名}").replace("{folder name}", "{album name}")
 
 
 def build_size_search_tokens(file_size):
@@ -493,6 +525,11 @@ class SequenceRenamePreviewDialog(QDialog):
         lbl_hint = QLabel(hint_text)
         lbl_hint.setWordWrap(True)
         layout.addWidget(lbl_hint)
+
+        lbl_naming_rule_note = QLabel(self.tr("dialog.rename_table.naming_rule_note"))
+        lbl_naming_rule_note.setWordWrap(True)
+        lbl_naming_rule_note.setObjectName("lbl_import_format_note")
+        layout.addWidget(lbl_naming_rule_note)
 
         self.table = QTableWidget(len(rows), 2)
         self.table.setHorizontalHeaderLabels(list(column_labels))
@@ -743,6 +780,20 @@ class CenteredComboBox(QComboBox):
         return super().eventFilter(obj, event)
 
 
+def header_menu_icon_rect(rect):
+    """見出し行（フォルダ/アルバム）の右クリックメニューを起動する「⋯」アイコンの表示・当たり判定領域。
+    FolderHeaderDelegate（描画）とImageListWidget/AlbumListWidget（クリック判定）の両方から
+    共通で参照することで、見た目と実際に押せる範囲がずれないようにする。
+    右クリックメニュー自体は右クリック専用の隠れた機能で発見しにくいとの指摘を受け、
+    見出し行に常時控えめに表示することで、クリック（左クリック）でも同じメニューを
+    開けるようにする（2026-08-20〜、要望対応：発見しやすさの改善）。"""
+    size = ICON_SIZE_LG
+    pad = SPACING_SM
+    y = rect.top() + max(0, (rect.height() - size) // 2)
+    x = rect.right() - pad - size
+    return QRect(x, y, size, size)
+
+
 class ImageListWidget(QListWidget):
     """通常のQListWidgetに加え、選択中の画像をFinder/エクスプローラーへ
     ドラッグ＆ドロップで“コピー専用”で渡せるようにしたリストウィジェット。
@@ -759,6 +810,7 @@ class ImageListWidget(QListWidget):
         self.setAcceptDrops(False)
         self._folder_drag_start_pos = None
         self._folder_drag_dir = None
+        self._suppress_next_header_click = False
         self.empty_overlay = QLabel("", self)
         self.empty_overlay.setObjectName("lbl_search_empty_overlay")
         self.empty_overlay.setAlignment(Qt.AlignCenter)
@@ -819,6 +871,13 @@ class ImageListWidget(QListWidget):
         if event.button() == Qt.LeftButton:
             item = self.itemAt(event.pos())
             if item is not None and item.data(Qt.UserRole) is None and item.data(Qt.UserRole + 8) is not None:
+                if header_menu_icon_rect(self.visualItemRect(item)).contains(event.pos()):
+                    self._suppress_next_header_click = True
+                    self._folder_drag_start_pos = None
+                    self._folder_drag_dir = None
+                    self.customContextMenuRequested.emit(event.pos())
+                    super().mousePressEvent(event)
+                    return
                 self._folder_drag_start_pos = event.pos()
                 self._folder_drag_dir = item.data(Qt.UserRole + 15)
             else:
@@ -880,6 +939,98 @@ class ImageListWidget(QListWidget):
         super().dropEvent(event)
 
 
+class AlbumListWidget(ImageListWidget):
+    """アルバム一覧用リスト（2026-08-18〜）。画像リスト（ImageListWidget）を継承し、
+    展開中のアルバムに並ぶ画像行のFinder等への「コピー専用」ドラッグ&ドロップ書き出しを
+    そのまま流用する（画像リストと同一の設計に統一。要望2026-08-18対応）。
+    さらに以下2点を追加する:
+      1) 見出し行（アルバム名の行）からのドラッグ: アルバムは実フォルダを持たないため、
+         フォルダ見出しのように既存のディレクトリをそのまま渡すことができない。
+         ドラッグ開始時に main_app.build_album_export_folder() でそのアルバムの画像を
+         一時フォルダへコピーして実体化し、そのフォルダをドラッグする
+         （Finder側には自動的に「フォルダ」として渡る）。
+      2) 画像リストからアルバム行への内部ドラッグ&ドロップ（アルバムへの画像追加）。
+    main_app 属性は生成後に外部からセットする（一時フォルダ合成のコールバック用）。"""
+
+    imagesDroppedOnAlbum = Signal(int, list)  # (album_id, [file_path, ...])
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.main_app = None
+        self.setAcceptDrops(True)
+        self._album_drag_start_pos = None
+        self._album_drag_album_id = None
+        self._album_drag_album_name = None
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+    def dropEvent(self, event):
+        mime = event.mimeData()
+        target_item = self.itemAt(event.position().toPoint() if hasattr(event, "position") else event.pos())
+        if mime.hasUrls() and target_item is not None:
+            paths = [url.toLocalFile() for url in mime.urls() if url.isLocalFile()]
+            paths = [p for p in paths if p]
+            album_id = target_item.data(Qt.UserRole + 30)
+            if paths and album_id is not None:
+                event.setDropAction(Qt.CopyAction)
+                event.accept()
+                self.imagesDroppedOnAlbum.emit(album_id, paths)
+                return
+        super().dropEvent(event)
+
+    def mousePressEvent(self, event):
+        """アルバムの見出し行の上で押された場合、そのアルバムid・名前を覚えておく
+        （見出し行は選択不可のため、通常のitemドラッグ機構は使えない。フォルダ見出しと同じ考え方）。"""
+        if event.button() == Qt.LeftButton:
+            item = self.itemAt(event.pos())
+            if item is not None and item.data(Qt.UserRole) is None and item.data(Qt.UserRole + 8) is not None:
+                if header_menu_icon_rect(self.visualItemRect(item)).contains(event.pos()):
+                    self._suppress_next_header_click = True
+                    self._album_drag_start_pos = None
+                    self._album_drag_album_id = None
+                    self.customContextMenuRequested.emit(event.pos())
+                    super().mousePressEvent(event)
+                    return
+                self._album_drag_start_pos = event.pos()
+                self._album_drag_album_id = item.data(Qt.UserRole + 30)
+                self._album_drag_album_name = item.data(Qt.UserRole + 8)
+            else:
+                self._album_drag_start_pos = None
+                self._album_drag_album_id = None
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        """アルバムの見出し行からのドラッグ距離がしきい値を超えたら、そのアルバムの画像を
+        一時フォルダへコピーして実体化し、そのフォルダをFinder等へ「コピー専用」でドラッグする。"""
+        if (self._album_drag_start_pos is not None and self._album_drag_album_id is not None
+                and event.buttons() & Qt.LeftButton):
+            if (event.pos() - self._album_drag_start_pos).manhattanLength() >= QApplication.startDragDistance():
+                album_id = self._album_drag_album_id
+                album_name = self._album_drag_album_name
+                self._album_drag_start_pos = None
+                self._album_drag_album_id = None
+                export_dir = self.main_app.build_album_export_folder(album_id, album_name) if self.main_app else None
+                if export_dir and os.path.isdir(export_dir):
+                    mime = QMimeData()
+                    mime.setUrls([QUrl.fromLocalFile(export_dir)])
+                    drag = QDrag(self)
+                    drag.setMimeData(mime)
+                    drag.setPixmap(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon).pixmap(48, 48))
+                    drag.exec(Qt.CopyAction, Qt.CopyAction)
+                return
+        super().mouseMoveEvent(event)
+
+
 class FolderHeaderDelegate(QStyledItemDelegate):
     """フォルダ別グループ表示の「見出し行」だけを自前描画するデリゲート。
     画像行は既定の描画（super）にそのまま委ねる。
@@ -937,7 +1088,13 @@ class FolderHeaderDelegate(QStyledItemDelegate):
         rect = option.rect
 
         colors = getattr(self._app, "theme_colors", None) or {}
-        header_bg = colors.get("group_header_bg")
+        album_id = index.data(Qt.UserRole + 30)
+        if album_id is not None:
+            is_current = album_id == getattr(self._app, "active_header_album_id", None)
+        else:
+            folder_name = index.data(Qt.UserRole + 8)
+            is_current = folder_name is not None and folder_name == getattr(self._app, "active_header_folder_name", None)
+        header_bg = colors.get("group_header_bg_current") if is_current else colors.get("group_header_bg")
         if header_bg:
             painter.fillRect(rect, QColor(header_bg))
         elif index.data(Qt.BackgroundRole) is not None:
@@ -988,6 +1145,11 @@ class FolderHeaderDelegate(QStyledItemDelegate):
         count_text = f"（{count}）"
         count_w = fm_count.horizontalAdvance(count_text)
         painter.drawText(QRect(x, top, count_w, primary_h), Qt.AlignLeft | Qt.AlignVCenter, count_text)
+
+        menu_rect = header_menu_icon_rect(rect)
+        painter.setFont(name_font)
+        painter.setPen(dim_color)
+        painter.drawText(menu_rect, Qt.AlignCenter, "⋯")
 
         if note:
             painter.setFont(note_font)
@@ -1835,6 +1997,322 @@ class FolderOrderDialog(QDialog):
         self.accept()
 
 
+class AlbumOrderDialog(QDialog):
+    """アルバムの並び順を編集するダイアログ（FolderOrderDialogと同じ考え方。
+    アルバムはidを持つため、名前ではなくidの並びで保存する）。"""
+    def __init__(self, main_app, albums):
+        super().__init__(main_app)
+        self.main_app = main_app
+        self.setWindowTitle(self.tr("dialog.album_order.title"))
+        self.setMinimumSize(420, 420)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(SPACING_MD)
+
+        lbl_intro = QLabel(self.tr("dialog.album_order.intro"))
+        lbl_intro.setWordWrap(True)
+        layout.addWidget(lbl_intro)
+
+        self.list_widget = QListWidget()
+        self.list_widget.setDragDropMode(QAbstractItemView.InternalMove)
+        self.list_widget.setDefaultDropAction(Qt.MoveAction)
+        for album in albums:
+            item = QListWidgetItem(album["name"])
+            item.setData(Qt.UserRole, album["id"])
+            self.list_widget.addItem(item)
+        layout.addWidget(self.list_widget)
+
+        btn_row = QHBoxLayout()
+        btn_save = QPushButton(self.tr("dialog.album_order.save_button"))
+        btn_save.clicked.connect(self.save_order)
+        btn_cancel = QPushButton(self.tr("common.button.cancel"))
+        btn_cancel.clicked.connect(self.reject)
+        btn_row.addWidget(btn_save)
+        btn_row.addWidget(btn_cancel)
+        layout.addLayout(btn_row)
+
+        if hasattr(main_app, "theme_colors") and hasattr(main_app, "build_stylesheet"):
+            self.setStyleSheet(main_app.build_stylesheet(main_app.theme_colors))
+
+    def tr(self, key):
+        return self.main_app.tr(key)
+
+    def save_order(self):
+        order = [self.list_widget.item(i).data(Qt.UserRole) for i in range(self.list_widget.count())]
+        database.set_album_order(order)
+        self.accept()
+
+
+class AlbumNamingRuleDialog(QDialog):
+    """アルバムの右クリックメニューから開く、アルバム専用の自動採番の設定ダイアログ。
+    FolderNamingRuleDialogと同じ項目立てだが、キーはfolder_dirではなくalbum_id。
+    このルールは「アルバム内の画像を一括で書き出す」操作の時だけ使われ、新規取り込み時には
+    使われない（アルバムは取り込み元になり得ないため）。フォルダ専用ルールとは互いに独立しており、
+    同一の書き出し操作で両方が同時に参照されることはない（フォルダ起点の書き出しか、
+    アルバム起点の書き出しか、操作の種類によって一方だけが使われる）。"""
+    def __init__(self, parent, album_id, album_name):
+        super().__init__(parent)
+        self._main_app_ref = parent
+        if self._main_app_ref is not None and not hasattr(self._main_app_ref, "tr") and hasattr(self._main_app_ref, "main_app"):
+            self._main_app_ref = self._main_app_ref.main_app
+        self.album_id = album_id
+        self.album_name = album_name
+        self.setWindowTitle(self.tr("dialog.album_naming_rule.title").format(album_name=album_name))
+        self.setMinimumWidth(420)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(SPACING_MD)
+
+        existing_rule = database.get_album_naming_rule(album_id)
+
+        lbl_hint = QLabel(self.tr("dialog.album_naming_rule.hint").format(album_name=album_name))
+        lbl_hint.setWordWrap(True)
+        layout.addWidget(lbl_hint)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(SPACING_SM)
+        grid.setVerticalSpacing(SPACING_SM)
+
+        default_prefix = _album_default_naming_text(database.get_setting("sequence_prefix", "CG_"))
+        default_digits = int(database.get_setting("sequence_digits", "5"))
+        default_append = _album_default_naming_text(database.get_setting("sequence_append", ""))
+
+        lbl_prefix = QLabel(self.tr("common.label.prefix"))
+        lbl_prefix.setFixedWidth(90)
+        self.txt_prefix = QLineEdit((existing_rule or {}).get("prefix", default_prefix))
+        self.txt_prefix.setToolTip(self.tr("dialog.album_naming_rule.placeholder_hint"))
+        grid.addWidget(lbl_prefix, 0, 0)
+        grid.addWidget(self.txt_prefix, 0, 1)
+
+        lbl_digits = QLabel(self.tr("common.label.digits"))
+        lbl_digits.setFixedWidth(90)
+        self.spn_digits = QSpinBox()
+        self.spn_digits.setRange(1, 6)
+        self.spn_digits.setButtonSymbols(QSpinBox.NoButtons)
+        self.spn_digits.setFixedWidth(45)
+        self.spn_digits.setValue((existing_rule or {}).get("digits", default_digits))
+        grid.addWidget(lbl_digits, 1, 0)
+        grid.addWidget(self.spn_digits, 1, 1)
+
+        lbl_append = QLabel(self.tr("common.label.append"))
+        lbl_append.setFixedWidth(90)
+        self.txt_append = QLineEdit((existing_rule or {}).get("append", default_append))
+        self.txt_append.setPlaceholderText(self.tr("common.placeholder.optional_blank"))
+        self.txt_append.setToolTip(self.tr("dialog.album_naming_rule.placeholder_hint"))
+        grid.addWidget(lbl_append, 2, 0)
+        grid.addWidget(self.txt_append, 2, 1)
+
+        grid.setColumnStretch(1, 1)
+        layout.addLayout(grid)
+
+        self.lbl_preview = QLabel()
+        self.lbl_preview.setWordWrap(True)
+        layout.addWidget(self.lbl_preview)
+
+        self.chk_override = QCheckBox(self.tr("dialog.album_naming_rule.override_checkbox"))
+        self.chk_override.setChecked(existing_rule is not None)
+        self.chk_override.toggled.connect(self._update_enabled_state)
+        self.txt_prefix.textChanged.connect(self._update_preview)
+        self.spn_digits.valueChanged.connect(self._update_preview)
+        self.txt_append.textChanged.connect(self._update_preview)
+        self._update_enabled_state()
+        self._update_preview()
+
+        btn_row = QHBoxLayout()
+        btn_row.addWidget(self.chk_override)
+        btn_row.addStretch()
+        btn_cancel = QPushButton(self.tr("common.button.cancel"))
+        btn_cancel.clicked.connect(self.reject)
+        btn_save = QPushButton(self.tr("common.button.save"))
+        btn_save.setObjectName("btn_save")
+        btn_save.clicked.connect(self._save)
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_save)
+        layout.addLayout(btn_row)
+
+        if parent is not None and hasattr(parent, "theme_colors") and hasattr(parent, "build_stylesheet"):
+            self.setStyleSheet(parent.build_stylesheet(parent.theme_colors))
+
+    def tr(self, key):
+        if self._main_app_ref is not None and hasattr(self._main_app_ref, "tr"):
+            return self._main_app_ref.tr(key)
+        return i18n.tr(key, i18n.DEFAULT_LANGUAGE)
+
+    def _update_enabled_state(self):
+        enabled = self.chk_override.isChecked()
+        self.txt_prefix.setEnabled(enabled)
+        self.spn_digits.setEnabled(enabled)
+        self.txt_append.setEnabled(enabled)
+        self._update_preview()
+
+    def _update_preview(self):
+        if not self.chk_override.isChecked():
+            self.lbl_preview.setText("")
+            return
+        prefix = database.resolve_naming_placeholders(self.txt_prefix.text(), album_name=self.album_name)
+        append = database.resolve_naming_placeholders(self.txt_append.text(), album_name=self.album_name)
+        digits = self.spn_digits.value()
+        next_num = database.peek_next_sequence_number(prefix, append)
+        examples = [f"{prefix}{n:0{digits}d}{append}" for n in range(next_num, next_num + 2)]
+        self.lbl_preview.setText(self.tr("dialog.album_naming_rule.preview_prefix") + " , ".join(examples))
+
+    def _save(self):
+        if self.chk_override.isChecked():
+            prefix = self.txt_prefix.text().strip()
+            if not prefix:
+                show_notification(self, self.tr("common.title.warning"), self.tr("dialog.folder_naming_rule.prefix_empty_warning"))
+                return
+            database.set_album_naming_rule(self.album_id, prefix, self.spn_digits.value(), self.txt_append.text())
+        else:
+            database.clear_album_naming_rule(self.album_id)
+        self.accept()
+
+
+class AlbumCreateDialog(QDialog):
+    """「アルバムを作成する」ボタンから開く、アルバム名の入力とアルバム専用の自動採番設定を
+    1つのポップアップにまとめたダイアログ（2026-08-20〜）。従来は名前入力のみの
+    QInputDialogで、採番ルールは作成後に見出しの右クリックメニューから別途設定する必要が
+    あったが、作成と同時に設定できるようにした。採番の既定値はオフ（アプリ全体の既定ルールを使う）。"""
+    def __init__(self, parent, default_name):
+        super().__init__(parent)
+        self.main_app = parent
+        self.setWindowTitle(self.tr("album.dialog.create.title"))
+        self.setMinimumWidth(420)
+
+        layout = QVBoxLayout(self)
+        layout.setSpacing(SPACING_MD)
+
+        lbl_name = QLabel(self.tr("album.dialog.create.label"))
+        layout.addWidget(lbl_name)
+        self.txt_name = QLineEdit(default_name)
+        self.txt_name.selectAll()
+        layout.addWidget(self.txt_name)
+
+        divider = QFrame()
+        divider.setObjectName("divider_line")
+        divider.setFrameShape(QFrame.HLine)
+        divider.setFixedHeight(1)
+        layout.addWidget(divider)
+
+        self.chk_override = QCheckBox(self.tr("dialog.album_naming_rule.override_checkbox"))
+        self.chk_override.setChecked(False)
+        layout.addWidget(self.chk_override)
+
+        lbl_naming_hint = QLabel(self.tr("album.dialog.create.naming_hint"))
+        lbl_naming_hint.setWordWrap(True)
+        layout.addWidget(lbl_naming_hint)
+
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(SPACING_SM)
+        grid.setVerticalSpacing(SPACING_SM)
+
+        default_prefix = _album_default_naming_text(database.get_setting("sequence_prefix", "CG_"))
+        default_digits = int(database.get_setting("sequence_digits", "5"))
+        default_append = _album_default_naming_text(database.get_setting("sequence_append", ""))
+
+        lbl_prefix = QLabel(self.tr("common.label.prefix"))
+        lbl_prefix.setFixedWidth(90)
+        self.txt_prefix = QLineEdit(default_prefix)
+        self.txt_prefix.setToolTip(self.tr("dialog.album_naming_rule.placeholder_hint"))
+        grid.addWidget(lbl_prefix, 0, 0)
+        grid.addWidget(self.txt_prefix, 0, 1)
+
+        lbl_digits = QLabel(self.tr("common.label.digits"))
+        lbl_digits.setFixedWidth(90)
+        self.spn_digits = QSpinBox()
+        self.spn_digits.setRange(1, 6)
+        self.spn_digits.setButtonSymbols(QSpinBox.NoButtons)
+        self.spn_digits.setFixedWidth(45)
+        self.spn_digits.setValue(default_digits)
+        grid.addWidget(lbl_digits, 1, 0)
+        grid.addWidget(self.spn_digits, 1, 1)
+
+        lbl_append = QLabel(self.tr("common.label.append"))
+        lbl_append.setFixedWidth(90)
+        self.txt_append = QLineEdit(default_append)
+        self.txt_append.setPlaceholderText(self.tr("common.placeholder.optional_blank"))
+        self.txt_append.setToolTip(self.tr("dialog.album_naming_rule.placeholder_hint"))
+        grid.addWidget(lbl_append, 2, 0)
+        grid.addWidget(self.txt_append, 2, 1)
+
+        grid.setColumnStretch(1, 1)
+        layout.addLayout(grid)
+
+        self.lbl_preview = QLabel()
+        self.lbl_preview.setWordWrap(True)
+        layout.addWidget(self.lbl_preview)
+
+        self.chk_override.toggled.connect(self._update_enabled_state)
+        self.txt_prefix.textChanged.connect(self._update_preview)
+        self.spn_digits.valueChanged.connect(self._update_preview)
+        self.txt_append.textChanged.connect(self._update_preview)
+        self.txt_name.textChanged.connect(self._update_preview)
+        self._update_enabled_state()
+        self._update_preview()
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_cancel = QPushButton(self.tr("common.button.cancel"))
+        btn_cancel.clicked.connect(self.reject)
+        btn_save = QPushButton(self.tr("album.dialog.create.confirm_button"))
+        btn_save.setObjectName("btn_save")
+        btn_save.clicked.connect(self._save)
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_save)
+        layout.addLayout(btn_row)
+
+        if parent is not None and hasattr(parent, "theme_colors") and hasattr(parent, "build_stylesheet"):
+            self.setStyleSheet(parent.build_stylesheet(parent.theme_colors))
+
+    def tr(self, key):
+        if self.main_app is not None and hasattr(self.main_app, "tr"):
+            return self.main_app.tr(key)
+        return i18n.tr(key, i18n.DEFAULT_LANGUAGE)
+
+    def _update_enabled_state(self):
+        enabled = self.chk_override.isChecked()
+        self.txt_prefix.setEnabled(enabled)
+        self.spn_digits.setEnabled(enabled)
+        self.txt_append.setEnabled(enabled)
+        self._update_preview()
+
+    def _update_preview(self):
+        if not self.chk_override.isChecked():
+            self.lbl_preview.setText("")
+            return
+        prefix = database.resolve_naming_placeholders(self.txt_prefix.text(), album_name=self.txt_name.text().strip())
+        append = database.resolve_naming_placeholders(self.txt_append.text(), album_name=self.txt_name.text().strip())
+        digits = self.spn_digits.value()
+        next_num = database.peek_next_sequence_number(prefix, append)
+        examples = [f"{prefix}{n:0{digits}d}{append}" for n in range(next_num, next_num + 2)]
+        self.lbl_preview.setText(self.tr("dialog.album_naming_rule.preview_prefix") + " , ".join(examples))
+
+    def _save(self):
+        name = self.txt_name.text().strip()
+        if not name:
+            show_notification(self, self.tr("common.title.warning"), self.tr("album.dialog.create.name_empty_warning"))
+            return
+        if self.chk_override.isChecked():
+            prefix = self.txt_prefix.text().strip()
+            if not prefix:
+                show_notification(self, self.tr("common.title.warning"), self.tr("dialog.folder_naming_rule.prefix_empty_warning"))
+                return
+        self.accept()
+
+    def get_result(self):
+        """(アルバム名, 採番ルールdict または None) を返す。呼び出し側は
+        Accepted判定後にこれを呼び、Noneでなければdatabase.set_album_naming_ruleへそのまま渡せる。"""
+        name = self.txt_name.text().strip()
+        if not self.chk_override.isChecked():
+            return name, None
+        rule = {
+            "prefix": self.txt_prefix.text().strip(),
+            "digits": self.spn_digits.value(),
+            "append": self.txt_append.text(),
+        }
+        return name, rule
+
+
 class SettingsDialog(QDialog):
     """歯車アイコンから開く設定ダイアログ。自動採番ルール・外観モード・ヘルプ・リリースノートをまとめる。"""
 
@@ -2476,6 +2954,7 @@ class SettingsDialog(QDialog):
         Step1時点ではUI文言の動的切り替えは未実装のため、変更は次回起動時から反映される
         （設定ダイアログ内の案内ラベルでもその旨を表示している）。"""
         database.set_setting("language", mode)
+        self.main_app._update_language_toggle_icon()
 
     def open_release_notes(self):
         QDesktopServices.openUrl(QUrl(GITHUB_REPO_URL))
@@ -2513,7 +2992,7 @@ class DatabaseMissingDialog(QDialog):
         layout.addWidget(self.radio_new)
 
         sample_row = QHBoxLayout()
-        sample_row.addSpacing(24)
+        sample_row.addSpacing(SPACING_XL)
         self.chk_sample_data = QCheckBox(self.tr("dialog.db_missing.sample_data_checkbox"))
         self._sample_data_available = os.path.isdir(get_sample_data_dir())
         self.chk_sample_data.setEnabled(self._sample_data_available)
@@ -2526,7 +3005,7 @@ class DatabaseMissingDialog(QDialog):
         layout.addWidget(self.radio_existing)
 
         existing_row = QHBoxLayout()
-        existing_row.addSpacing(24)
+        existing_row.addSpacing(SPACING_XL)
         self.cmb_existing = CenteredComboBox()
         self.cmb_existing.addItems(other_dbs)
         self.cmb_existing.setEnabled(False)
@@ -2537,7 +3016,7 @@ class DatabaseMissingDialog(QDialog):
         layout.addWidget(self.radio_external)
 
         external_row = QHBoxLayout()
-        external_row.addSpacing(24)
+        external_row.addSpacing(SPACING_XL)
         self.lbl_external_path = QLabel(self.tr("dialog.db_missing.no_selection"))
         self.lbl_external_path.setWordWrap(True)
         btn_browse = QPushButton(self.tr("common.button.choose_file"))
@@ -2633,38 +3112,45 @@ class AIImageViewerApp(QMainWindow):
         self.main_layout.setSpacing(SPACING_SM)
 
         self.btn_toggle_all_fields = QPushButton()
-        self.btn_toggle_all_fields.setIcon(render_svg_icon("hide_form", size=18))
-        self.btn_toggle_all_fields.setIconSize(QSize(18, 18))
+        self.btn_toggle_all_fields.setIcon(render_svg_icon("hide_form", size=ICON_SIZE_XL))
+        self.btn_toggle_all_fields.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_toggle_all_fields.setObjectName("btn_settings")
         self.btn_toggle_all_fields.setFixedSize(32, 32)
         self.btn_toggle_all_fields.setToolTip(self.tr("main.tooltip.toggle_all_fields_hide"))
         self.btn_toggle_all_fields.clicked.connect(self.toggle_all_optional_fields)
 
         self.btn_panel_flip = QPushButton()
-        self.btn_panel_flip.setIconSize(QSize(18, 18))
+        self.btn_panel_flip.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_panel_flip.setObjectName("btn_settings")
         self.btn_panel_flip.setFixedSize(32, 32)
         self.btn_panel_flip.clicked.connect(self.toggle_panel_layout)
 
         self.btn_theme_toggle = QPushButton()
-        self.btn_theme_toggle.setIconSize(QSize(18, 18))
+        self.btn_theme_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_theme_toggle.setObjectName("btn_settings")
         self.btn_theme_toggle.setFixedSize(32, 32)
         self.btn_theme_toggle.clicked.connect(self.cycle_theme_mode)
 
+        self.btn_language_toggle = QPushButton()
+        self.btn_language_toggle.setIcon(render_svg_icon("language", size=ICON_SIZE_XL))
+        self.btn_language_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
+        self.btn_language_toggle.setObjectName("btn_settings")
+        self.btn_language_toggle.setFixedSize(32, 32)
+        self.btn_language_toggle.clicked.connect(self.cycle_language_mode)
+
         self.btn_help = QPushButton()
-        self.btn_help.setIcon(render_svg_icon("help", size=18))
-        self.btn_help.setIconSize(QSize(18, 18))
+        self.btn_help.setIcon(render_svg_icon("help", size=ICON_SIZE_XL))
+        self.btn_help.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_help.setObjectName("btn_settings")
         self.btn_help.setFixedSize(32, 32)
         self.btn_help.setToolTip(self.tr("main.tooltip.help"))
         self.btn_help.clicked.connect(self.open_help_dialog)
 
         self.btn_settings = QPushButton()
-        self.btn_settings.setIcon(render_svg_icon("settings", size=22))
-        self.btn_settings.setIconSize(QSize(22, 22))
+        self.btn_settings.setIcon(render_svg_icon("settings", size=ICON_SIZE_XL))
+        self.btn_settings.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_settings.setObjectName("btn_settings")
-        self.btn_settings.setFixedSize(40, 32)
+        self.btn_settings.setFixedSize(32, 32)
         self.btn_settings.setToolTip(self.tr("main.tooltip.settings"))
         self.btn_settings.clicked.connect(self.open_settings_dialog)
 
@@ -2678,6 +3164,7 @@ class AIImageViewerApp(QMainWindow):
         self.top_bar_layout.addWidget(self.btn_toggle_all_fields)
         self.top_bar_layout.addWidget(self.btn_panel_flip)
         self.top_bar_layout.addWidget(self.btn_theme_toggle)
+        self.top_bar_layout.addWidget(self.btn_language_toggle)
         self.top_bar_layout.addWidget(self.btn_help)
         self.top_bar_layout.addWidget(self.btn_settings)
         self.main_layout.addLayout(self.top_bar_layout)
@@ -2701,15 +3188,15 @@ class AIImageViewerApp(QMainWindow):
         self.search_layout.setContentsMargins(0, 0, 0, 0)
         self.search_layout.setSpacing(SPACING_SM)
         self.txt_search = QLineEdit()
-        self.txt_search.setFixedHeight(32)
+        self.txt_search.setFixedHeight(36)
         self.txt_search.setPlaceholderText(self.tr("main.search.placeholder"))
-        self.txt_search.addAction(render_svg_icon("search", size=16), QLineEdit.LeadingPosition)
+        self.txt_search.addAction(render_svg_icon("search", size=ICON_SIZE_LG), QLineEdit.LeadingPosition)
         self._search_debounce = QTimer(self)
         self._search_debounce.setSingleShot(True)
         self._search_debounce.setInterval(150)
-        self._search_debounce.timeout.connect(self.filter_images)
+        self._search_debounce.timeout.connect(self._run_search_filter)
         self.txt_search.textChanged.connect(lambda *_: self._search_debounce.start())
-        
+
         self.search_layout.addWidget(self.txt_search)
         self.left_layout.addLayout(self.search_layout)
         
@@ -2718,24 +3205,24 @@ class AIImageViewerApp(QMainWindow):
         self.import_sync_layout.setSpacing(SPACING_MD)
         
         self.btn_import_folder = QPushButton(self.tr("main.button.import_folder"))
-        self.btn_import_folder.setIcon(render_svg_icon("import_folder", size=18))
-        self.btn_import_folder.setIconSize(QSize(18, 18))
-        self.btn_import_folder.setFixedHeight(38)
+        self.btn_import_folder.setIcon(render_svg_icon("import_folder", size=ICON_SIZE_XL))
+        self.btn_import_folder.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
+        self.btn_import_folder.setFixedHeight(36)
         self.btn_import_folder.setToolTip(self.tr("main.tooltip.import_folder"))
         self.btn_import_folder.clicked.connect(self.open_folder_dialog)
 
         self.btn_import_files = QPushButton(self.tr("main.button.import_files"))
-        self.btn_import_files.setIcon(render_svg_icon("import_files", size=18))
-        self.btn_import_files.setIconSize(QSize(18, 18))
-        self.btn_import_files.setFixedHeight(38)
+        self.btn_import_files.setIcon(render_svg_icon("import_files", size=ICON_SIZE_XL))
+        self.btn_import_files.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
+        self.btn_import_files.setFixedHeight(36)
         self.btn_import_files.setToolTip(self.tr("main.tooltip.import_files"))
         self.btn_import_files.clicked.connect(self.open_file_dialog)
         
         self.btn_sync = QPushButton()
-        self.btn_sync.setIcon(render_svg_icon("directory_sync", size=18))
-        self.btn_sync.setIconSize(QSize(18, 18))
+        self.btn_sync.setIcon(render_svg_icon("directory_sync", size=ICON_SIZE_XL))
+        self.btn_sync.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_sync.setObjectName("btn_view_toggle")
-        self.btn_sync.setFixedSize(40, 38)
+        self.btn_sync.setFixedSize(40, 36)
         self.btn_sync.setToolTip("取り込み済みフォルダを同期（増減を反映）\nこれまでに取り込んだフォルダを再スキャンし、新規追加された画像を取り込み、\n削除・移動された画像をリストから取り除きます。")
         self.btn_sync.clicked.connect(self.sync_folders)
         
@@ -2749,44 +3236,52 @@ class AIImageViewerApp(QMainWindow):
         self.sort_view_layout.setSpacing(SPACING_MD)
         
         self.lbl_sort_icon = QLabel()
-        self.lbl_sort_icon.setPixmap(render_svg_icon("sort", size=18).pixmap(18, 18))
-        self.lbl_sort_icon.setFixedSize(18, 18)
+        self.lbl_sort_icon.setPixmap(render_svg_icon("sort", size=ICON_SIZE_LG).pixmap(ICON_SIZE_LG, ICON_SIZE_LG))
+        self.lbl_sort_icon.setFixedSize(ICON_SIZE_LG, ICON_SIZE_LG)
         self.lbl_sort_icon.setToolTip("並べ替え")
         
         self.cmb_sort = CenteredComboBox()
         self.cmb_sort.setObjectName("cmb_sort")
-        self.cmb_sort.setFixedHeight(38)
+        self.cmb_sort.setFixedHeight(36)
         self.cmb_sort.addItem(render_svg_icon("name", size=16), self.tr("main.sort.by_name"))
         self.cmb_sort.addItem(render_svg_icon("created_date", size=16), self.tr("main.sort.by_created"))
         self.cmb_sort.addItem(render_svg_icon("edited_date", size=16), self.tr("main.sort.by_edited"))
         self.cmb_sort.addItem(render_svg_icon("imported_date", size=16), self.tr("main.sort.by_imported"))
         self.cmb_sort.addItem(render_svg_icon("rating_sort", size=16), self.tr("main.sort.by_rating"))
         self.cmb_sort.addItem(render_svg_icon("filesize_sort", size=16), self.tr("main.sort.by_filesize"))
+        self.cmb_sort.addItem(render_svg_icon("file_name", size=16), self.tr("main.sort.by_filename"))
         self.cmb_sort.currentIndexChanged.connect(self.on_sort_changed)
         
         self.btn_sort_direction = QPushButton()
-        self.btn_sort_direction.setIcon(render_svg_icon("arrow_upward", size=18))
-        self.btn_sort_direction.setIconSize(QSize(18, 18))
+        self.btn_sort_direction.setIcon(render_svg_icon("arrow_upward", size=ICON_SIZE_XL))
+        self.btn_sort_direction.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_sort_direction.setObjectName("btn_view_toggle")
-        self.btn_sort_direction.setFixedSize(40, 38)
+        self.btn_sort_direction.setFixedSize(40, 36)
         self.btn_sort_direction.setToolTip(self.tr("main.tooltip.sort_direction_asc"))
         self.btn_sort_direction.clicked.connect(self.toggle_sort_direction)
         
         self.btn_view_toggle = QPushButton()
-        self.btn_view_toggle.setIcon(render_svg_icon("grid_view", size=16))
-        self.btn_view_toggle.setIconSize(QSize(16, 16))
+        self.btn_view_toggle.setIcon(render_svg_icon("grid_view", size=ICON_SIZE_XL))
+        self.btn_view_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_view_toggle.setObjectName("btn_view_toggle")
-        self.btn_view_toggle.setFixedSize(40, 38)
+        self.btn_view_toggle.setFixedSize(40, 36)
         self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_to_grid"))
         self.btn_view_toggle.clicked.connect(self.toggle_view_mode)
         
         self.group_mode = "none"
         self.collapsed_folders = set()
+        self.active_album_id = None
+        self.active_header_folder_name = None
+        self.active_header_album_id = None
+        self._is_dirty = False
+        self._loading_metadata = False
+        self.browse_mode = "images"
+        self.collapsed_albums = set()
         self.btn_group_toggle = QPushButton()
-        self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=18))
-        self.btn_group_toggle.setIconSize(QSize(18, 18))
+        self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=ICON_SIZE_XL))
+        self.btn_group_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
         self.btn_group_toggle.setObjectName("btn_view_toggle")
-        self.btn_group_toggle.setFixedSize(40, 38)
+        self.btn_group_toggle.setFixedSize(40, 36)
         self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_enable"))
         self.btn_group_toggle.clicked.connect(self.toggle_group_mode)
         
@@ -2809,7 +3304,7 @@ class AIImageViewerApp(QMainWindow):
         self.btn_grid_small.setIcon(render_svg_icon("grid_small", size=14))
         self.btn_grid_small.setIconSize(QSize(14, 14))
         self.btn_grid_small.setObjectName("btn_preview_size")
-        self.btn_grid_small.setFixedSize(72, 26)
+        self.btn_grid_small.setFixedSize(72, 28)
         self.btn_grid_small.setToolTip(self.tr("main.tooltip.grid_small"))
         self.btn_grid_small.clicked.connect(lambda: self.set_grid_tile_size("small"))
         
@@ -2817,7 +3312,7 @@ class AIImageViewerApp(QMainWindow):
         self.btn_grid_medium.setIcon(render_svg_icon("grid_medium", size=14))
         self.btn_grid_medium.setIconSize(QSize(14, 14))
         self.btn_grid_medium.setObjectName("btn_preview_size_active")
-        self.btn_grid_medium.setFixedSize(72, 26)
+        self.btn_grid_medium.setFixedSize(72, 28)
         self.btn_grid_medium.setToolTip(self.tr("main.tooltip.grid_medium"))
         self.btn_grid_medium.clicked.connect(lambda: self.set_grid_tile_size("medium"))
         
@@ -2825,7 +3320,7 @@ class AIImageViewerApp(QMainWindow):
         self.btn_grid_large.setIcon(render_svg_icon("grid_large", size=14))
         self.btn_grid_large.setIconSize(QSize(14, 14))
         self.btn_grid_large.setObjectName("btn_preview_size")
-        self.btn_grid_large.setFixedSize(72, 26)
+        self.btn_grid_large.setFixedSize(72, 28)
         self.btn_grid_large.setToolTip(self.tr("main.tooltip.grid_large"))
         self.btn_grid_large.clicked.connect(lambda: self.set_grid_tile_size("large"))
         
@@ -2843,7 +3338,39 @@ class AIImageViewerApp(QMainWindow):
         self.grid_size_widget.setLayout(self.grid_size_layout)
         self.grid_size_widget.setVisible(False)
         self.left_layout.addWidget(self.grid_size_widget)
-        
+
+        self.album_header_layout = QHBoxLayout()
+        self.album_header_layout.setContentsMargins(0, 0, 0, 0)
+        self.album_header_layout.setSpacing(SPACING_XS)
+
+        self.btn_add_album = QPushButton(self.tr("album.button.create"))
+        self.btn_add_album.setIcon(render_svg_icon("add", size=ICON_SIZE_LG))
+        self.btn_add_album.setIconSize(QSize(ICON_SIZE_LG, ICON_SIZE_LG))
+        self.btn_add_album.setFixedHeight(36)
+        self.btn_add_album.setToolTip(self.tr("album.tooltip.add"))
+        self.btn_add_album.clicked.connect(self.create_album)
+        self.btn_add_album.setVisible(False)
+        self.album_header_layout.addWidget(self.btn_add_album)
+
+        self.album_list = AlbumListWidget()
+        self.album_list.setObjectName("album_list")
+        self.album_list.setItemDelegate(FolderHeaderDelegate(self))
+        self.album_list.setIconSize(QSize(60, 60))
+        self.album_list.setSelectionMode(QListWidget.ExtendedSelection)
+        self.album_list.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.album_list.main_app = self
+        self.album_list.itemClicked.connect(self.on_album_item_clicked)
+        self.album_list.currentItemChanged.connect(self.on_album_current_item_changed)
+        self.album_list.itemSelectionChanged.connect(self.on_image_selected)
+        self.album_list.customContextMenuRequested.connect(self.show_album_context_menu)
+        self.album_list.imagesDroppedOnAlbum.connect(self.add_dropped_paths_to_album)
+
+        self.album_page = QWidget()
+        self.album_page_layout = QVBoxLayout(self.album_page)
+        self.album_page_layout.setContentsMargins(0, 0, 0, 0)
+        self.album_page_layout.setSpacing(SPACING_SM)
+        self.album_page_layout.addWidget(self.album_list)
+
         self.image_list = ImageListWidget()
         self.image_list.setObjectName("image_list")
         self.image_list.setItemDelegate(FolderHeaderDelegate(self))
@@ -2871,12 +3398,48 @@ class AIImageViewerApp(QMainWindow):
         self.image_list_stack.addWidget(self.image_list)
         self.image_list_stack.addWidget(self.lbl_empty_state)
         self.image_list_stack.addWidget(self.lbl_drag_hover)
+        self.image_list_stack.addWidget(self.album_page)
         self.left_layout.addWidget(self.image_list_stack)
-        
+
+        self.browse_mode_layout = QHBoxLayout()
+        self.browse_mode_layout.setContentsMargins(0, 0, 0, 0)
+        self.browse_mode_layout.setSpacing(SPACING_SM)
+
+        self.btn_browse_images = QPushButton(self.tr("browse_mode.button.images"))
+        self.btn_browse_images.setIcon(render_svg_icon("folder", size=14, color=SVG_ICON_COLOR_ON_ACCENT))
+        self.btn_browse_images.setIconSize(QSize(14, 14))
+        self.btn_browse_images.setObjectName("btn_preview_size_active")
+        self.btn_browse_images.setFixedHeight(28)
+        self.btn_browse_images.setToolTip(self.tr("browse_mode.tooltip.images"))
+        self.btn_browse_images.clicked.connect(self.switch_to_images_mode)
+
+        self.btn_browse_albums = QPushButton(self.tr("browse_mode.button.albums"))
+        self.btn_browse_albums.setIcon(render_svg_icon("album_stack", size=14))
+        self.btn_browse_albums.setIconSize(QSize(14, 14))
+        self.btn_browse_albums.setObjectName("btn_preview_size")
+        self.btn_browse_albums.setFixedHeight(28)
+        self.btn_browse_albums.setToolTip(self.tr("browse_mode.tooltip.albums"))
+        self.btn_browse_albums.clicked.connect(self.switch_to_albums_mode)
+
+        self.btn_clear_album_filter = QPushButton()
+        self.btn_clear_album_filter.setIcon(render_svg_icon("close_dialog", size=ICON_SIZE_MD))
+        self.btn_clear_album_filter.setIconSize(QSize(ICON_SIZE_MD, ICON_SIZE_MD))
+        self.btn_clear_album_filter.setObjectName("btn_copy")
+        self.btn_clear_album_filter.setFixedSize(22, 28)
+        self.btn_clear_album_filter.setToolTip(self.tr("album.tooltip.clear_filter"))
+        self.btn_clear_album_filter.setVisible(False)
+        self.btn_clear_album_filter.clicked.connect(self.clear_album_filter)
+
+        self.browse_mode_layout.addWidget(self.btn_browse_images, 1)
+        self.browse_mode_layout.addWidget(self.btn_browse_albums, 1)
+        self.browse_mode_layout.addWidget(self.btn_clear_album_filter)
+        self.left_layout.insertLayout(2, self.browse_mode_layout)
+        self.left_layout.insertLayout(3, self.album_header_layout)
+
         self.lbl_library_status = QLabel("")
         self.lbl_library_status.setObjectName("lbl_library_status")
         self.lbl_library_status.setAlignment(Qt.AlignCenter)
-        self.lbl_library_status.setContentsMargins(0, 6, 0, 0)
+        self.lbl_library_status.setContentsMargins(0, SPACING_XS, 0, 0)
         self.left_layout.addWidget(self.lbl_library_status)
         
         self.import_format_container = QWidget()
@@ -2960,12 +3523,14 @@ class AIImageViewerApp(QMainWindow):
         self.txt_filename = QLineEdit()
         self.txt_filename.setFixedHeight(32)
         self.txt_filename.setToolTip(self.tr("metadata.filename.tooltip"))
-        
+        self.txt_filename.textChanged.connect(self._mark_dirty)
+
         self.lbl_name_title = create_icon_label_row("name", self.tr("metadata.name.header"), icon_size=16)
         self.lbl_name_title.setFixedWidth(58)
         self.txt_display_name = QLineEdit()
         self.txt_display_name.setFixedHeight(32)
         self.txt_display_name.setToolTip(self.tr("metadata.name.tooltip"))
+        self.txt_display_name.textChanged.connect(self._mark_dirty)
         
         self.meta_edit_layout.addWidget(self.lbl_filename_title)
         self.meta_edit_layout.addSpacing(SPACING_MD)
@@ -3040,6 +3605,7 @@ class AIImageViewerApp(QMainWindow):
         
         self.star_rating = StarRatingWidget()
         self.star_rating.setToolTip(self.tr("metadata.tooltip.star_rating"))
+        self.star_rating.ratingChanged.connect(self._mark_dirty)
         self.preview_size_layout.addWidget(self.star_rating)
         
         self.preview_size_container = QWidget()
@@ -3058,15 +3624,17 @@ class AIImageViewerApp(QMainWindow):
         self.btn_prev_image.setIcon(render_svg_icon("chevron_left", size=20))
         self.btn_prev_image.setIconSize(QSize(20, 20))
         self.btn_prev_image.setObjectName("btn_nav_image")
-        self.btn_prev_image.setFixedSize(40, 40)
+        self.btn_prev_image.setFixedWidth(40)
+        self.btn_prev_image.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.btn_prev_image.setToolTip(self.tr("metadata.tooltip.prev_image"))
         self.btn_prev_image.clicked.connect(self.prev_image)
-        
+
         self.btn_next_image = QPushButton()
         self.btn_next_image.setIcon(render_svg_icon("chevron_right", size=20))
         self.btn_next_image.setIconSize(QSize(20, 20))
         self.btn_next_image.setObjectName("btn_nav_image")
-        self.btn_next_image.setFixedSize(40, 40)
+        self.btn_next_image.setFixedWidth(40)
+        self.btn_next_image.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         self.btn_next_image.setToolTip(self.tr("metadata.tooltip.next_image"))
         self.btn_next_image.clicked.connect(self.next_image)
         
@@ -3121,56 +3689,75 @@ class AIImageViewerApp(QMainWindow):
         self.slideshow_container.setLayout(self.slideshow_layout)
         self.slideshow_container.setFixedHeight(36)
 
-        self.right_layout.addWidget(self.create_divider())
+        self.metadata_sections = []
+
+        divider_memo = self.create_divider()
+        self.right_layout.addWidget(divider_memo)
         self.txt_memo = QLineEdit()
         self.txt_memo.setObjectName("txt_memo")
         self.txt_memo.setPlaceholderText(self.tr("metadata.memo.placeholder"))
-        header_layout, self.btn_clear_memo, self.btn_toggle_memo = self.create_section_header(self.tr("metadata.memo.header"), self.txt_memo, icon_name="release_notes")
-        self.right_layout.addLayout(header_layout)
+        self.txt_memo.textChanged.connect(self._mark_dirty)
+        header_memo, self.btn_clear_memo, self.btn_toggle_memo, btn_up_memo, btn_down_memo = self.create_section_header(self.tr("metadata.memo.header"), self.txt_memo, icon_name="release_notes", section_key="memo")
+        self.right_layout.addWidget(header_memo)
         self.right_layout.addWidget(self.txt_memo)
+        self.metadata_sections.append({"key": "memo", "divider": divider_memo, "header": header_memo, "content": self.txt_memo, "extra": None, "toggle_btn": self.btn_toggle_memo, "btn_up": btn_up_memo, "btn_down": btn_down_memo})
 
-        self.right_layout.addWidget(self.create_divider())
+        divider_model = self.create_divider()
+        self.right_layout.addWidget(divider_model)
         self.txt_model = QTextEdit()
         self.txt_model.setObjectName("txt_model")
         self.txt_model.setMaximumHeight(35)
         self.txt_model.setReadOnly(True)
-        header_layout, self.btn_clear_model, self.btn_toggle_model = self.create_section_header(self.tr("metadata.model.header"), self.txt_model, icon_name="model")
-        self.right_layout.addLayout(header_layout)
+        header_model, self.btn_clear_model, self.btn_toggle_model, btn_up_model, btn_down_model = self.create_section_header(self.tr("metadata.model.header"), self.txt_model, icon_name="model", section_key="model")
+        self.right_layout.addWidget(header_model)
         self.right_layout.addWidget(self.txt_model)
-        
+
         self.generation_params_container = QWidget()
         self.generation_params_layout = QHBoxLayout(self.generation_params_container)
-        self.generation_params_layout.setContentsMargins(30, 0, 0, 0)
+        self.generation_params_layout.setContentsMargins(SPACING_XXL, 0, 0, 0)
         self.generation_params_layout.setSpacing(0)
         self.generation_params_container.setVisible(False)
         self.right_layout.addWidget(self.generation_params_container)
-        
-        self.right_layout.addWidget(self.create_divider())
+        self.metadata_sections.append({"key": "model", "divider": divider_model, "header": header_model, "content": self.txt_model, "extra": self.generation_params_container, "toggle_btn": self.btn_toggle_model, "btn_up": btn_up_model, "btn_down": btn_down_model})
+
+        divider_prompt = self.create_divider()
+        self.right_layout.addWidget(divider_prompt)
         self.txt_prompt = QTextEdit()
         self.txt_prompt.setObjectName("txt_prompt")
         self.txt_prompt.setMaximumHeight(105)
-        header_layout, self.btn_clear_prompt, self.btn_toggle_prompt = self.create_section_header(self.tr("metadata.prompt.header"), self.txt_prompt, icon_name="prompt")
-        self.right_layout.addLayout(header_layout)
+        self.txt_prompt.textChanged.connect(self._mark_dirty)
+        header_prompt, self.btn_clear_prompt, self.btn_toggle_prompt, btn_up_prompt, btn_down_prompt = self.create_section_header(self.tr("metadata.prompt.header"), self.txt_prompt, icon_name="prompt", section_key="prompt")
+        self.right_layout.addWidget(header_prompt)
         self.right_layout.addWidget(self.txt_prompt)
-        
-        self.right_layout.addWidget(self.create_divider())
+        self.metadata_sections.append({"key": "prompt", "divider": divider_prompt, "header": header_prompt, "content": self.txt_prompt, "extra": None, "toggle_btn": self.btn_toggle_prompt, "btn_up": btn_up_prompt, "btn_down": btn_down_prompt})
+
+        divider_neg_prompt = self.create_divider()
+        self.right_layout.addWidget(divider_neg_prompt)
         self.txt_neg_prompt = QTextEdit()
         self.txt_neg_prompt.setObjectName("txt_prompt")
         self.txt_neg_prompt.setMaximumHeight(105)
-        header_layout, self.btn_clear_neg_prompt, self.btn_toggle_neg_prompt = self.create_section_header(self.tr("metadata.negative_prompt.header"), self.txt_neg_prompt, icon_name="negative_prompt")
-        self.right_layout.addLayout(header_layout)
+        self.txt_neg_prompt.textChanged.connect(self._mark_dirty)
+        header_neg_prompt, self.btn_clear_neg_prompt, self.btn_toggle_neg_prompt, btn_up_neg_prompt, btn_down_neg_prompt = self.create_section_header(self.tr("metadata.negative_prompt.header"), self.txt_neg_prompt, icon_name="negative_prompt", section_key="negative_prompt")
+        self.right_layout.addWidget(header_neg_prompt)
         self.right_layout.addWidget(self.txt_neg_prompt)
-        
-        self.right_layout.addWidget(self.create_divider())
+        self.metadata_sections.append({"key": "negative_prompt", "divider": divider_neg_prompt, "header": header_neg_prompt, "content": self.txt_neg_prompt, "extra": None, "toggle_btn": self.btn_toggle_neg_prompt, "btn_up": btn_up_neg_prompt, "btn_down": btn_down_neg_prompt})
+
+        divider_metadata = self.create_divider()
+        self.right_layout.addWidget(divider_metadata)
         self.txt_metadata = QTextEdit()
         self.txt_metadata.setObjectName("txt_metadata")
         self.txt_metadata.setMaximumHeight(125)
-        header_layout, self.btn_clear_metadata, self.btn_toggle_metadata = self.create_section_header(self.tr("metadata.other_params.header"), self.txt_metadata, icon_name="parameters")
-        self.right_layout.addLayout(header_layout)
+        self.txt_metadata.textChanged.connect(self._mark_dirty)
+        header_metadata, self.btn_clear_metadata, self.btn_toggle_metadata, btn_up_metadata, btn_down_metadata = self.create_section_header(self.tr("metadata.other_params.header"), self.txt_metadata, icon_name="parameters", section_key="other_metadata")
+        self.right_layout.addWidget(header_metadata)
         self.right_layout.addWidget(self.txt_metadata)
+        self.metadata_sections.append({"key": "other_metadata", "divider": divider_metadata, "header": header_metadata, "content": self.txt_metadata, "extra": None, "toggle_btn": self.btn_toggle_metadata, "btn_up": btn_up_metadata, "btn_down": btn_down_metadata})
 
         self.right_layout.addStretch(1)
-        
+
+        self._apply_saved_metadata_section_order()
+        self._update_metadata_section_move_buttons()
+
         for field_widget, toggle_btn in [
             (self.txt_memo, self.btn_toggle_memo),
             (self.txt_model, self.btn_toggle_model),
@@ -3181,7 +3768,9 @@ class AIImageViewerApp(QMainWindow):
             field_widget.setVisible(False)
             toggle_btn.setIcon(render_svg_icon("show_form", size=14))
             toggle_btn.setToolTip(self.tr("metadata.tooltip.section_toggle_show"))
-        
+
+        self._apply_saved_metadata_fields_display_state()
+
         self.right_scroll.setWidget(self.right_widget)
         self.right_container_layout.addWidget(self.preview_size_container)
         self.right_container_layout.addWidget(self.right_scroll)
@@ -3202,34 +3791,49 @@ class AIImageViewerApp(QMainWindow):
             3: "COALESCE(imported_at, file_mtime)",
             4: "rating",
             5: "COALESCE(file_size, 0)",
+            6: "file_name COLLATE NOCASE",
         }
         self.sort_expr = sort_expr_map.get(saved_sort_index, "file_name COLLATE NOCASE")
         self.sort_dir = saved_sort_dir if saved_sort_dir in ("ASC", "DESC") else "ASC"
+        self.sort_by_actual_filename = (saved_sort_index == 6)
         
         self.cmb_sort.blockSignals(True)
         self.cmb_sort.setCurrentIndex(saved_sort_index)
         self.cmb_sort.blockSignals(False)
         if self.sort_dir == "DESC":
-            self.btn_sort_direction.setIcon(render_svg_icon("arrow_downward", size=18))
-            self.btn_sort_direction.setIconSize(QSize(18, 18))
+            self.btn_sort_direction.setIcon(render_svg_icon("arrow_downward", size=ICON_SIZE_XL))
+            self.btn_sort_direction.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
             self.btn_sort_direction.setToolTip(self.tr("main.tooltip.sort_direction_desc"))
         
         self.view_mode = "list"
+        saved_grid_tile_size = database.get_setting("grid_tile_size", "medium")
+        if saved_grid_tile_size not in GRID_SIZE_PRESETS:
+            saved_grid_tile_size = "medium"
+        if saved_grid_tile_size != "medium":
+            self.set_grid_tile_size(saved_grid_tile_size)
+        saved_view_mode = database.get_setting("view_mode", "list")
+        if saved_view_mode == "grid":
+            self.toggle_view_mode()
+        saved_preview_size_mode = database.get_setting("preview_size_mode", "standard")
+        if saved_preview_size_mode in ("hidden", "standard", "compact") and saved_preview_size_mode != "standard":
+            self.set_preview_size_mode(saved_preview_size_mode)
         self._thumbnail_cache = OrderedDict()
         self._path_exists_cache = {}
         self._all_collapsed_warning_shown = False
-        
+        self._all_albums_collapsed_warning_shown = False
+
         self.collapsed_folders = database.get_collapsed_folders()
+        self.collapsed_albums = database.get_collapsed_albums()
         if database.get_setting("last_group_mode", "none") == "folder":
             self.group_mode = "folder"
             self.btn_group_toggle.setObjectName("btn_group_toggle_active")
             self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_disable"))
-            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=18, color=SVG_ICON_COLOR_ON_ACCENT))
+            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=ICON_SIZE_XL, color=SVG_ICON_COLOR_ON_ACCENT))
             self._repolish(self.btn_group_toggle)
-            self.btn_reading_mode.setEnabled(True)
             self.btn_view_toggle.setEnabled(False)
             self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_disabled_grouped"))
-        
+        self._update_reading_mode_button_enabled()
+
         self.timer = QTimer(self)
         self.timer.setInterval(int(self.slideshow_base_interval_sec * 1000 / self.slideshow_speed))
         self.timer.timeout.connect(self.next_image)
@@ -3239,8 +3843,13 @@ class AIImageViewerApp(QMainWindow):
             QGuiApplication.styleHints().colorSchemeChanged.connect(self.on_system_theme_changed)
         except Exception as e:
             print(f"外観モードの自動検出に対応していません（固定テーマで動作します）: {e}")
-        
+        self._update_language_toggle_icon()
+
+        self.load_albums_into_sidebar()
         self.load_images_from_db()
+
+        if database.get_setting("browse_mode", "images") == "albums":
+            self.switch_to_albums_mode()
 
     def tr(self, key):
         return i18n.tr(key, self.current_lang)
@@ -3306,6 +3915,43 @@ class AIImageViewerApp(QMainWindow):
         database.set_setting("theme_mode", new_mode)
         self.apply_theme()
 
+    def cycle_language_mode(self):
+        """上部バーの表示言語切替ボタン用。クリックのたびに 自動→日本語→English→自動… と
+        1クリックで巡回する（設定画面の3択ラジオボタンと同じ設定項目を共有する）。
+        表示言語は起動時にのみ解決されるため、確認ダイアログ（YES/NO）でYESが選ばれた場合のみ
+        設定を保存してアプリを再起動する。NOの場合は設定を変更しない。"""
+        cycle_order = ["auto", "ja", "en"]
+        current_mode = database.get_setting("language", "auto")
+        current_index = cycle_order.index(current_mode) if current_mode in cycle_order else 0
+        new_mode = cycle_order[(current_index + 1) % len(cycle_order)]
+        new_mode_label = {
+            "auto": self.tr("language.auto"),
+            "ja": self.tr("language.ja"),
+            "en": self.tr("language.en"),
+        }.get(new_mode, new_mode)
+        reply = show_confirm_dialog(
+            self, self.tr("settings.language.switch_confirm.title"),
+            self.tr("settings.language.switch_confirm.body").format(lang=new_mode_label)
+        )
+        if reply != QMessageBox.Yes:
+            return
+        database.set_setting("language", new_mode)
+        self.restart_app()
+
+    def _update_language_toggle_icon(self):
+        """表示言語切替ボタンのツールチップを、現在の表示言語設定に合わせて更新する。
+        アイコン自体は globe（language）で固定し、状態はツールチップ文言で示す。"""
+        btn = getattr(self, "btn_language_toggle", None)
+        if btn is None:
+            return
+        mode = database.get_setting("language", "auto")
+        mode_labels = {
+            "auto": self.tr("language.auto"),
+            "ja": self.tr("language.ja"),
+            "en": self.tr("language.en"),
+        }
+        btn.setToolTip(self.tr("main.tooltip.language_toggle").format(lang=mode_labels.get(mode, mode)))
+
     def _update_theme_toggle_icon(self):
         """外観モードボタンのアイコン・ツールチップを更新する。
         「自動（システムに追従）」の時だけ専用アイコン（night_sight_auto）を表示し、
@@ -3317,9 +3963,9 @@ class AIImageViewerApp(QMainWindow):
             return
         mode = database.get_setting("theme_mode", "auto")
         if mode == "auto":
-            btn.setIcon(render_svg_icon("night_sight_auto", size=18))
+            btn.setIcon(render_svg_icon("night_sight_auto", size=ICON_SIZE_XL))
         else:
-            btn.setIcon(render_svg_icon("dark_mode" if self.is_dark else "light_mode", size=18))
+            btn.setIcon(render_svg_icon("dark_mode" if self.is_dark else "light_mode", size=ICON_SIZE_XL))
         mode_labels = {
             "auto": self.tr("settings.theme.auto"),
             "dark": self.tr("settings.theme.dark"),
@@ -3405,6 +4051,13 @@ class AIImageViewerApp(QMainWindow):
             QListWidget#image_list::item {{ border-bottom: 1px solid {c['list_item_border']}; padding: 9px 8px; }}
             QListWidget#image_list::item:selected {{ background-color: {c['accent_bg']}; color: {c['accent_text']}; }}
 
+            QListWidget#album_list {{
+                background-color: {c['list_bg']}; color: {c['list_text']};
+                border: 1px solid {c['list_border']}; border-radius: 6px;
+            }}
+            QListWidget#album_list::item {{ border-bottom: 1px solid {c['list_item_border']}; padding: 5px 8px; }}
+            QListWidget#album_list::item:selected {{ background-color: {c['accent_bg']}; color: {c['accent_text']}; }}
+
             QTableWidget {{
                 background-color: {c['list_bg']}; color: {c['list_text']};
                 alternate-background-color: {c['input_bg']};
@@ -3430,7 +4083,7 @@ class AIImageViewerApp(QMainWindow):
             }}
             QPushButton#btn_delete:hover {{ background-color: {c['button_hover']}; }}
             QPushButton#btn_export {{ background-color: {c['export_bg']}; color: {c['export_text']}; border: none; }}
-            QPushButton#btn_nav_image {{ border-radius: 20px; font-size: {ICON_SIZE_LG}px; }}
+            QPushButton#btn_nav_image {{ border-radius: 8px; font-size: {ICON_SIZE_LG}px; }}
             QPushButton#btn_view_toggle {{ font-size: {ICON_SIZE_MD}px; }}
             QPushButton#btn_settings {{ font-size: {ICON_SIZE_XL}px; padding: 0px; }}
             QPushButton#btn_group_toggle_active {{
@@ -3440,6 +4093,7 @@ class AIImageViewerApp(QMainWindow):
             QPushButton#btn_slideshow_idle {{ background-color: {c['accent_bg']}; color: {c['accent_text']}; border: none; }}
             QPushButton#btn_slideshow_active {{ background-color: {c['danger_bg']}; color: {c['danger_text']}; border: none; }}
             QPushButton#btn_save_multi {{ background-color: {c['accent_bg']}; color: {c['accent_text']}; border: none; }}
+            QPushButton#btn_save_dirty {{ background-color: {c['unsaved_bg']}; color: {c['unsaved_text']}; border: none; }}
             
             QPushButton#btn_speed {{
                 background-color: {c['speed_btn_bg']}; color: {c['speed_btn_text']};
@@ -3488,22 +4142,50 @@ class AIImageViewerApp(QMainWindow):
         line.setFixedHeight(1)
         return line
 
-    def create_section_header(self, title_text, target_widget, icon_name=None):
-        """タイトルラベル・表示/非表示切替ボタン・コピーボタン・クリアボタンを並べた見出し行を作成する。
+    def create_section_header(self, title_text, target_widget, icon_name=None, section_key=None):
+        """タイトルラベル・並び替え（上下）ボタン・表示/非表示切替ボタン・コピーボタン・クリアボタンを
+        並べた見出し行を作成する。
         icon_name を指定した場合は、同名アイコン＋テキスト（【】無し）の見出しにする。
         指定しない場合は、従来通り【】付きのプレーンテキスト見出しにする。
-        ボタンは「表示/非表示切替 → コピー → クリア」の順に並び、間隔は12px。
-        戻り値は (layout, btn_clear, btn_toggle) のタプル。"""
-        layout = QHBoxLayout()
+        section_key を指定した場合のみ、並び替え用の上下ボタンを追加する
+        （2026-08-20〜、要望対応：メモ/使用モデル/プロンプト等の編集欄の表示順序を
+        入れ替えられるようにする。self.metadata_sectionsに登録されている5項目でのみ使用）。
+        ボタンは「並び替え(上下) → 表示/非表示切替 → コピー → クリア」の順に並び、間隔は12px。
+        戻り値は (header_widget, btn_clear, btn_toggle, btn_up, btn_down) のタプル。
+        section_key未指定の場合、btn_up/btn_downはNoneになる。
+        header_widget はQWidgetで包んでいる（2026-08-18〜。「完全非表示モード」で見出し行ごと
+        setVisible(False)にできるようにするため。以前はQHBoxLayoutを直接返しaddLayout()していたが、
+        レイアウトは個別にvisible切替ができないためQWidgetへ変更した）。"""
+        header_widget = QWidget()
+        layout = QHBoxLayout(header_widget)
         layout.setContentsMargins(0, 0, 0, SPACING_XS)
         layout.setSpacing(12)
-        
+
         if icon_name:
             label = create_icon_label_row(icon_name, title_text, icon_size=16, heading=True)
         else:
             label = QLabel(f"【{title_text}】")
             label.setObjectName("lbl_section_heading")
-        
+
+        btn_up = None
+        btn_down = None
+        if section_key is not None:
+            btn_up = QPushButton()
+            btn_up.setIcon(render_svg_icon("arrow_upward", size=14))
+            btn_up.setIconSize(QSize(14, 14))
+            btn_up.setObjectName("btn_copy")
+            btn_up.setFixedSize(26, 22)
+            btn_up.setToolTip(self.tr("metadata.tooltip.section_move_up"))
+            btn_up.clicked.connect(lambda: self.move_metadata_section(section_key, -1))
+
+            btn_down = QPushButton()
+            btn_down.setIcon(render_svg_icon("arrow_downward", size=14))
+            btn_down.setIconSize(QSize(14, 14))
+            btn_down.setObjectName("btn_copy")
+            btn_down.setFixedSize(26, 22)
+            btn_down.setToolTip(self.tr("metadata.tooltip.section_move_down"))
+            btn_down.clicked.connect(lambda: self.move_metadata_section(section_key, 1))
+
         btn_toggle = QPushButton()
         btn_toggle.setIcon(render_svg_icon("hide_form", size=14))
         btn_toggle.setIconSize(QSize(14, 14))
@@ -3533,11 +4215,81 @@ class AIImageViewerApp(QMainWindow):
         
         layout.addWidget(label)
         layout.addStretch()
+        if btn_up is not None:
+            layout.addWidget(btn_up)
+            layout.addWidget(btn_down)
         layout.addWidget(btn_toggle)
         layout.addWidget(btn_copy)
         layout.addWidget(btn_clear)
-        
-        return layout, btn_clear, btn_toggle
+
+        return header_widget, btn_clear, btn_toggle, btn_up, btn_down
+
+    def move_metadata_section(self, key, direction):
+        """メモ/使用モデル/プロンプト/ネガティブプロンプト/その他パラメータの各見出しにある
+        上下ボタンから呼ばれ、対象セクションを1つ上または下（direction=-1/+1）へ入れ替える。
+        （2026-08-20〜、要望対応：編集欄の表示順序を並び替えられるようにする）"""
+        idx = next((i for i, s in enumerate(self.metadata_sections) if s["key"] == key), None)
+        if idx is None:
+            return
+        new_idx = idx + direction
+        if not (0 <= new_idx < len(self.metadata_sections)):
+            return
+        self.metadata_sections[idx], self.metadata_sections[new_idx] = self.metadata_sections[new_idx], self.metadata_sections[idx]
+        self._rebuild_metadata_section_layout()
+        self._save_metadata_section_order()
+
+    def _rebuild_metadata_section_layout(self):
+        """self.metadata_sectionsの現在の並び順どおりに、right_layout内のウィジェット
+        （区切り線・見出し・内容・任意の追加ウィジェット）を実際に並べ直す。
+        セクション群はright_layout内で常にpreview_layout（インデックス0）の直後から
+        末尾の伸縮スペーサーの手前までの連続した範囲を占めるため、いったん全て取り除いてから
+        インデックス1を起点に並べ直す。"""
+        widgets_in_order = []
+        for section in self.metadata_sections:
+            widgets_in_order.append(section["divider"])
+            widgets_in_order.append(section["header"])
+            widgets_in_order.append(section["content"])
+            if section.get("extra") is not None:
+                widgets_in_order.append(section["extra"])
+        for w in widgets_in_order:
+            self.right_layout.removeWidget(w)
+        insert_at = 1
+        for w in widgets_in_order:
+            self.right_layout.insertWidget(insert_at, w)
+            insert_at += 1
+        self._update_metadata_section_move_buttons()
+
+    def _update_metadata_section_move_buttons(self):
+        """先頭のセクションは上ボタンを、末尾のセクションは下ボタンを無効化する。"""
+        last_idx = len(self.metadata_sections) - 1
+        for i, section in enumerate(self.metadata_sections):
+            if section.get("btn_up") is not None:
+                section["btn_up"].setEnabled(i > 0)
+            if section.get("btn_down") is not None:
+                section["btn_down"].setEnabled(i < last_idx)
+
+    def _save_metadata_section_order(self):
+        """現在の並び順をDBへ保存し、次回起動時にも復元できるようにする。"""
+        order = [s["key"] for s in self.metadata_sections]
+        database.set_setting("metadata_section_order", json.dumps(order))
+
+    def _apply_saved_metadata_section_order(self):
+        """DBに保存済みの並び順があれば、起動時にself.metadata_sections・right_layoutへ適用する。
+        未保存（初回起動）の場合や、保存内容がその時点のキー集合と一致しない場合
+        （アプリのアップデートで項目が増減した場合等）は、コードのデフォルト順のまま何もしない。"""
+        saved = database.get_setting("metadata_section_order", None)
+        if not saved:
+            return
+        try:
+            order = json.loads(saved)
+        except (ValueError, TypeError):
+            return
+        current_keys = {s["key"] for s in self.metadata_sections}
+        if set(order) != current_keys or len(order) != len(self.metadata_sections):
+            return
+        by_key = {s["key"]: s for s in self.metadata_sections}
+        self.metadata_sections = [by_key[k] for k in order]
+        self._rebuild_metadata_section_layout()
 
     def copy_text_to_clipboard(self, source_widget, btn):
         """テキストエリア（QTextEdit）または1行入力欄（QLineEdit、メモ欄など）の内容を
@@ -3566,30 +4318,104 @@ class AIImageViewerApp(QMainWindow):
             self.btn_toggle_import_formats.setToolTip(self.tr("main.tooltip.import_formats_show"))
 
     def toggle_all_optional_fields(self):
-        """メタデータ編集欄（使用モデル・プロンプト・ネガティブプロンプト・その他パラメータ）と
-        取り込み形式欄を、まとめて表示/非表示に切り替える。1つでも表示中の項目があればまとめて
-        非表示にし、すべて非表示の場合はまとめて表示する。"""
-        field_pairs = [
+        """上部バーのボタン（btn_toggle_all_fields）1つで、メタデータ編集欄・取り込み形式欄の
+        表示状態を「表示」→「非表示（見出しのみ）」→「完全非表示（見出しも含めて非表示、
+        プレビュー最大化）」→「表示」…と1クリックごとに巡回させる（2026-08-18〜、3段階化。
+        以前は表示/非表示の2択だった。また、当初は「プレビュー拡大」を別ボタンとして用意したが、
+        対象範囲・挙動が完全に重複しアイコンも紛らわしかったため、このボタン1つに統合した）。
+        現在の状態は _fields_display_state() でウィジェットの実際の可視状態から判定するため、
+        個別の見出しボタン（btn_toggle_prompt等）で先に一部だけ変更されていても矛盾なく動作する。"""
+        cycle_order = ["shown", "hidden", "fully_hidden"]
+        current_state = self._fields_display_state()
+        current_index = cycle_order.index(current_state) if current_state in cycle_order else 0
+        new_state = cycle_order[(current_index + 1) % len(cycle_order)]
+        self._apply_fields_display_state(new_state)
+
+    def _all_optional_field_pairs(self):
+        """表示/非表示の対象とする編集欄（表示ウィジェット, 個別トグルボタン）の一覧。
+        両ボタン・3段階の状態判定で共通利用し、対象範囲がずれないようにする。"""
+        return [
             (self.txt_model, self.btn_toggle_model),
             (self.txt_prompt, self.btn_toggle_prompt),
             (self.txt_neg_prompt, self.btn_toggle_neg_prompt),
             (self.txt_metadata, self.btn_toggle_metadata),
             (self.txt_memo, self.btn_toggle_memo),
         ]
-        any_visible = any(w.isVisible() for w, _ in field_pairs) or self.import_format_body.isVisible()
-        target_visible = not any_visible
 
-        for widget, btn in field_pairs:
-            if widget.isVisible() != target_visible:
+    def _fields_display_state(self):
+        """編集欄・見出し行の現在の表示状態を、実際のウィジェットの可視状態から判定する。
+        "shown"＝すべて表示中／"hidden"＝内容は非表示だが見出し行は表示中（従来の非表示状態）／
+        "fully_hidden"＝見出し行も含めてすべて非表示（2026-08-18〜追加）。"""
+        field_pairs = self._all_optional_field_pairs()
+        if any(w.isVisible() for w, _ in field_pairs):
+            return "shown"
+        if self.metadata_sections and self.metadata_sections[0]["header"].isVisible():
+            return "hidden"
+        return "fully_hidden"
+
+    def _apply_fields_display_state(self, new_state):
+        """編集欄・見出し行・取り込み形式欄の表示状態を、指定した状態（"shown"/"hidden"/
+        "fully_hidden"）にまとめて適用し、両ボタンのアイコンを揃える。"""
+        content_visible = new_state == "shown"
+        header_visible = new_state != "fully_hidden"
+
+        for widget, btn in self._all_optional_field_pairs():
+            if widget.isVisible() != content_visible:
                 self.toggle_metadata_field_visibility(widget, btn)
-        if self.import_format_body.isVisible() != target_visible:
+        if self.import_format_body.isVisible() != content_visible:
             self.toggle_import_format_visibility()
 
-        if target_visible:
-            self.btn_toggle_all_fields.setIcon(render_svg_icon("hide_form", size=18))
+        for section in self.metadata_sections:
+            section["header"].setVisible(header_visible)
+            section["divider"].setVisible(header_visible)
+
+        self._sync_all_fields_toggle_icons(new_state)
+        self._save_metadata_fields_display_state()
+
+    def _save_metadata_fields_display_state(self):
+        """メモ/使用モデル/プロンプト/ネガティブプロンプト/その他パラメータの各表示状態
+        （内容の表示/非表示・見出し行の表示/非表示）をDBへ保存し、次回起動時にも
+        復元できるようにする（2026-08-20〜、要望対応）。"""
+        if not self.metadata_sections:
+            return
+        state = {
+            "content": {s["key"]: s["content"].isVisible() for s in self.metadata_sections},
+            "headers_visible": self.metadata_sections[0]["header"].isVisible(),
+        }
+        database.set_setting("metadata_fields_display", json.dumps(state))
+
+    def _apply_saved_metadata_fields_display_state(self):
+        """DBに保存済みの表示状態があれば、起動時に適用する。保存内容が現在のセクション構成と
+        一致しない場合（アプリのアップデートで項目が増減した場合等）は、該当項目のみ無視する。"""
+        saved = database.get_setting("metadata_fields_display", None)
+        if not saved:
+            return
+        try:
+            state = json.loads(saved)
+        except (ValueError, TypeError):
+            return
+        content_state = state.get("content", {})
+        headers_visible = state.get("headers_visible", True)
+        for section in self.metadata_sections:
+            want_visible = content_state.get(section["key"])
+            if want_visible is not None and section["content"].isVisible() != want_visible:
+                self.toggle_metadata_field_visibility(section["content"], section["toggle_btn"])
+            section["header"].setVisible(headers_visible)
+            section["divider"].setVisible(headers_visible)
+        self._sync_all_fields_toggle_icons(self._fields_display_state())
+
+    def _sync_all_fields_toggle_icons(self, state):
+        """btn_toggle_all_fields のアイコン・ツールチップを、現在の状態
+        （"shown"/"hidden"/"fully_hidden"）に合わせて更新する。
+        アイコンは「次にクリックした時に何が起こるか」を表す（既存の他ボタンと同じ方針）。"""
+        if state == "shown":
+            self.btn_toggle_all_fields.setIcon(render_svg_icon("hide_form", size=ICON_SIZE_XL))
             self.btn_toggle_all_fields.setToolTip(self.tr("main.tooltip.toggle_all_fields_hide"))
+        elif state == "hidden":
+            self.btn_toggle_all_fields.setIcon(render_svg_icon("dock_to_bottom", size=ICON_SIZE_XL))
+            self.btn_toggle_all_fields.setToolTip(self.tr("main.tooltip.toggle_all_fields_hide_all"))
         else:
-            self.btn_toggle_all_fields.setIcon(render_svg_icon("show_form", size=18))
+            self.btn_toggle_all_fields.setIcon(render_svg_icon("show_form", size=ICON_SIZE_XL))
             self.btn_toggle_all_fields.setToolTip(self.tr("main.tooltip.toggle_all_fields_show"))
 
     def toggle_metadata_field_visibility(self, target_widget, btn_toggle):
@@ -3610,6 +4436,7 @@ class AIImageViewerApp(QMainWindow):
             btn_toggle.setToolTip("編集フォームを表示する")
         
         self.autosize_all_metadata_fields()
+        self._save_metadata_fields_display_state()
 
     def autosize_metadata_field(self, widget, max_height=160, min_height=40):
         """QTextEditの表示中の内容量に応じて、高さを前後1〜2行程度の余白になるよう自動調整する。
@@ -3796,6 +4623,18 @@ class AIImageViewerApp(QMainWindow):
             self._path_exists_cache[path] = os.path.exists(path)
         return self._path_exists_cache[path]
 
+    def _sort_rows_by_actual_filename(self, rows):
+        """「ファイル名順」選択時、DB上の`file_name`列（＝編集欄「名前」の値）ではなく、
+        パソコン上の実際のファイル名（file_pathの末尾）を基準に並べ替える
+        （2026-08-20〜、要望対応：名前順とファイル名順を選べるようにする）。
+        実ファイル名はSQLの列ではなくfile_pathから都度求める必要があるため、SQLのORDER BYではなく
+        フェッチ後にPython側でソートし直す方式にしている。rowsの1番目の要素（インデックス1）が
+        file_pathであることを前提とする（load_images_from_db/load_albums_into_sidebarのSELECT文と対応）。"""
+        if not getattr(self, "sort_by_actual_filename", False):
+            return rows
+        reverse = self.sort_dir == "DESC"
+        return sorted(rows, key=lambda row: normalize_search_text(os.path.basename(row[1] or "")), reverse=reverse)
+
     def load_images_from_db(self, recheck_existence=None):
         """DBから画像を読み込み、リストを再構築する。
         recheck_existence: True=ファイル実在を実スキャンしてキャッシュ更新（起動時・同期時に使用）。
@@ -3810,13 +4649,18 @@ class AIImageViewerApp(QMainWindow):
         cursor.execute(f"SELECT id, file_path, file_name, prompt, negative_prompt, other_metadata, rating, file_mtime, updated_at, is_locked, imported_at, file_size, memo FROM images ORDER BY {self.sort_expr} {self.sort_dir}, file_name COLLATE NOCASE ASC")
         rows = cursor.fetchall()
         conn.close()
+        rows = self._sort_rows_by_actual_filename(rows)
         
         icon_px = GRID_SIZE_PRESETS[self.grid_tile_size][0] if self.view_mode == "grid" else 60
         
         existing_rows = [row for row in rows if self._path_exists(row[1], recheck=recheck_existence)]
         missing_count = len(rows) - len(existing_rows)
-        
-        use_grouping = (self.group_mode == "folder" and self.view_mode == "list")
+
+        if self.active_album_id is not None:
+            album_image_ids = database.get_album_image_ids(self.active_album_id)
+            existing_rows = [row for row in existing_rows if row[0] in album_image_ids]
+
+        use_grouping = (self.group_mode == "folder" and self.view_mode == "list" and self.active_album_id is None)
         
         if use_grouping:
             groups = {}
@@ -3863,8 +4707,20 @@ class AIImageViewerApp(QMainWindow):
         return tuple(exts) if exts else None
 
     def _update_library_status(self):
-        """リスト下部に、取り込み済みの「フォルダ数・画像数・最後に同期した日時」を表示する。
-        同期日時は「同期」実行時のみ更新され、一度も同期していなければ「未同期」と表示する。"""
+        """リスト下部の統計表示を更新する。
+        画像モード中は、取り込み済みの「フォルダ数・画像数・最後に同期した日時」を表示する
+        （同期日時は「同期」実行時のみ更新され、一度も同期していなければ「未同期」と表示する）。
+        アルバムモード中は、代わりに「アルバムの総数・アルバムに所属する画像の総数」だけを表示する
+        （2026-08-20〜、要望対応）。以前はload_images_from_db()が算出した「現在選択中のアルバムに
+        絞り込んだ件数」をそのまま表示しており、画像をクリックするたびに表示が変わってしまっていた。
+        アルバム表示中はactive_album_idに関係なく常にライブラリ全体のアルバム集計を使うことで、
+        同期時刻のような「固定表示」に近い安定した見え方にする。"""
+        if self.browse_mode == "albums":
+            album_count, album_image_count = database.get_album_totals()
+            self.lbl_library_status.setText(
+                self.tr("main.library_status_album").format(albums=album_count, images=album_image_count)
+            )
+            return
         folders = getattr(self, "_library_folder_count", 0)
         images = getattr(self, "_current_image_count", 0)
         last_sync = database.get_setting("last_sync_datetime", "") or self.tr("main.library_status.not_synced")
@@ -3897,6 +4753,9 @@ class AIImageViewerApp(QMainWindow):
         has_items = getattr(self, "_current_image_count", 0) > 0
         if self.image_list_stack.currentWidget() is self.lbl_drag_hover:
             return
+        if self.browse_mode == "albums":
+            self.image_list_stack.setCurrentWidget(self.album_page)
+            return
         if has_items:
             self.image_list_stack.setCurrentWidget(self.image_list)
         else:
@@ -3919,7 +4778,7 @@ class AIImageViewerApp(QMainWindow):
         is_collapsed = folder_name in self.collapsed_folders
         indicator = "▶" if is_collapsed else "▼"
         item = QListWidgetItem("")
-        item.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon))
+        item.setIcon(render_svg_icon("folder", size=60, color="#378ADD"))
         item.setToolTip(self.tr("main.folder_header.tooltip_collapsed") if is_collapsed else self.tr("main.folder_header.tooltip_expanded"))
         item.setData(Qt.UserRole + 8, folder_name)
         item.setData(Qt.UserRole + 12, count)
@@ -3933,10 +4792,16 @@ class AIImageViewerApp(QMainWindow):
         return item
 
     def on_image_list_item_clicked(self, item):
-        """画像リストの項目がクリックされた際、フォルダ見出し行であれば折りたたみ/展開を切り替える"""
+        """画像リストの項目がクリックされた際、フォルダ見出し行であれば折りたたみ/展開を切り替える。
+        見出し行自体をクリックした場合も、そのフォルダを「現在アクティブなフォルダ」として
+        見出しのハイライト対象にする（2026-08-20〜、要望対応）。"""
+        if self.image_list._suppress_next_header_click:
+            self.image_list._suppress_next_header_click = False
+            return
         if item.data(Qt.UserRole) is None:
             folder_name = item.data(Qt.UserRole + 8)
             if folder_name:
+                self.active_header_folder_name = folder_name
                 self.toggle_folder_collapsed(folder_name)
 
     def toggle_folder_collapsed(self, folder_name):
@@ -4198,6 +5063,92 @@ class AIImageViewerApp(QMainWindow):
                 return False
         return True
 
+    def _run_search_filter(self):
+        """検索欄のデバウンス後に呼ばれる振り分け役。現在の表示モード（画像/アルバム）に応じて、
+        画像リスト側・アルバム一覧側どちらのフィルタを実行するかを切り替える
+        （2026-08-20〜、アルバム表示中の検索対応）。"""
+        if self.browse_mode == "albums":
+            self.filter_albums()
+        else:
+            self.filter_images()
+
+    def filter_albums(self):
+        """アルバム表示中の検索欄フィルタ。画像リストのfilter_imagesと同じ考え方で、
+        展開中（開いている）アルバムの画像だけを検索対象とし、折りたたみ中のアルバムは
+        画像リストの「折りたたみ中フォルダ」と同様、検索欄が空でも常に非表示のままにする。
+        一致0件の開いているアルバムには見出し下段に0件案内を、折りたたみ中のアルバムには
+        「折りたたみ中は検索対象外」の案内を出す（2026-08-20〜、要望対応）。"""
+        search_raw = self.txt_search.text().replace("　", " ").strip().lower()
+        if not search_raw:
+            self._all_albums_collapsed_warning_shown = False
+            for i in range(self.album_list.count()):
+                item = self.album_list.item(i)
+                if item.data(Qt.UserRole) is None:
+                    self._refresh_album_header_text(item, searching=False)
+                    item.setHidden(False)
+                    continue
+                album_id = item.data(Qt.UserRole + 31)
+                if album_id in self.collapsed_albums:
+                    continue
+                item.setHidden(False)
+            return
+
+        period_filters, or_groups = self._parse_search_query(self.txt_search.text())
+        per_album_match = {}
+        for i in range(self.album_list.count()):
+            item = self.album_list.item(i)
+            if item.data(Qt.UserRole) is None:
+                continue
+            match_all = self._item_matches_query(item, period_filters, or_groups)
+            album_id = item.data(Qt.UserRole + 31)
+            is_folded_away = album_id in self.collapsed_albums
+            if match_all and not is_folded_away:
+                item.setHidden(False)
+                if album_id is not None:
+                    per_album_match[album_id] = per_album_match.get(album_id, 0) + 1
+            else:
+                item.setHidden(True)
+
+        header_count = 0
+        collapsed_header_count = 0
+        for i in range(self.album_list.count()):
+            item = self.album_list.item(i)
+            if item.data(Qt.UserRole) is None:
+                album_id = item.data(Qt.UserRole + 30)
+                is_collapsed = album_id in self.collapsed_albums
+                header_count += 1
+                if is_collapsed:
+                    collapsed_header_count += 1
+                self._refresh_album_header_text(item, searching=True, match_count=per_album_match.get(album_id, 0))
+                item.setHidden(False)
+
+        all_collapsed = header_count > 0 and collapsed_header_count == header_count
+        if all_collapsed:
+            if not getattr(self, "_all_albums_collapsed_warning_shown", False):
+                self._all_albums_collapsed_warning_shown = True
+                show_notification(self, self.tr("common.title.about_search"), self.tr("notify.search_all_albums_collapsed"))
+            return
+        self._all_albums_collapsed_warning_shown = False
+
+    def _refresh_album_header_text(self, item, searching, match_count=None):
+        """アルバム見出し行の表示文言を、現在の折りたたみ状態・検索状態に合わせて再構成する
+        （画像リストの_refresh_folder_header_textと同じ考え方）。
+        検索中は、そのアルバムの状態に応じて見出し下段の注記を出し分ける:
+          ・折りたたみ中 … 「（折りたたみ中は検索対象外）」
+          ・開いていて一致0件（match_count==0） … 「検索結果は 0 件です」
+        match_count=None のとき（件数を渡さない呼び出し）は0件注記を付けない。"""
+        album_id = item.data(Qt.UserRole + 30)
+        is_collapsed = album_id in self.collapsed_albums
+        indicator = "▶" if is_collapsed else "▼"
+        if searching and is_collapsed:
+            note = self.tr("main.album_header.note_collapsed_search")
+        elif searching and match_count == 0:
+            note = self.tr("main.label.no_search_results")
+        else:
+            note = ""
+        item.setData(Qt.UserRole + 13, note)
+        item.setData(Qt.UserRole + 14, indicator)
+
     def filter_images(self):
         search_raw = self.txt_search.text().replace("　", " ").strip().lower()
         if not search_raw:
@@ -4323,15 +5274,24 @@ class AIImageViewerApp(QMainWindow):
                 self.delete_folder_from_database(folder_name, folder_dir, folder_count)
             return
         
-        if item not in self.image_list.selectedItems():
-            self.image_list.setCurrentItem(item)
-        
-        selected_items = self.image_list.selectedItems()
+        self._show_image_row_context_menu(self.image_list, pos, item)
+
+    def _show_image_row_context_menu(self, list_widget, pos, item):
+        """画像の行（見出し行ではない、実際の画像アイテム）に対する右クリックメニュー本体。
+        通常の画像リスト（self.image_list）とアルバム一覧の展開中の画像行（self.album_list）の
+        両方から共通で呼べるよう、対象のリストウィジェットを引数として受け取る
+        （2026-08-20〜、要望対応：アルバム内画像を複数選択して右クリックしてもメニューが
+        出なかった不具合の修正。従来はアルバム側の画像行に対する右クリックメニューが
+        未実装のまま何も起こらない状態だった）。"""
+        if item not in list_widget.selectedItems():
+            list_widget.setCurrentItem(item)
+
+        selected_items = list_widget.selectedItems()
         file_paths = [it.data(Qt.UserRole + 1) for it in selected_items]
         file_paths = [fp for fp in file_paths if fp and os.path.exists(fp)]
         if not file_paths:
             return
-        
+
         system = platform.system()
         if system == "Darwin":
             reveal_label = self.tr("menu.reveal_finder")
@@ -4339,7 +5299,7 @@ class AIImageViewerApp(QMainWindow):
             reveal_label = self.tr("menu.reveal_explorer")
         else:
             reveal_label = self.tr("menu.reveal_file_manager")
-        
+
         menu = QMenu(self)
         menu.setStyleSheet(self.get_menu_stylesheet())
         count_suffix = f"（{len(file_paths)} 件）" if len(file_paths) > 1 else ""
@@ -4352,7 +5312,7 @@ class AIImageViewerApp(QMainWindow):
         else:
             action_lock_toggle = menu.addAction(render_svg_icon("lock", size=16), f"{self.tr('menu.lock_edit')}{count_suffix}")
 
-        if self.group_mode == "folder":
+        if list_widget is self.image_list and self.group_mode == "folder":
             menu.addSeparator()
             self._add_folder_expand_collapse_actions(menu)
 
@@ -4360,13 +5320,33 @@ class AIImageViewerApp(QMainWindow):
         action_copy_file = menu.addAction(render_svg_icon("content_copy", size=16), f"{self.tr('menu.copy_file')}{count_suffix}{self.tr('menu.copy_file_suffix')}")
         action_copy_path = menu.addAction(render_svg_icon("content_copy", size=16), self.tr("menu.copy_file_path"))
 
-        action_bulk_rename = None
         menu.addSeparator()
-        if len(selected_items) > 1:
-            action_bulk_rename = menu.addAction(render_svg_icon("release_notes", size=16), f"{self.tr('menu.bulk_rename')}{count_suffix}")
+        action_bulk_rename = menu.addAction(render_svg_icon("release_notes", size=16), f"{self.tr('menu.bulk_rename')}{count_suffix}")
         action_copy_renamed = menu.addAction(render_svg_icon("content_copy", size=16), f"{self.tr('menu.bulk_copy_renamed')}{count_suffix}")
 
-        chosen = menu.exec(self.image_list.viewport().mapToGlobal(pos))
+        menu.addSeparator()
+        submenu_add_to_album = menu.addMenu(render_svg_icon("release_notes", size=16), f"{self.tr('menu.add_to_album')}{count_suffix}")
+        existing_albums = database.get_all_albums()
+        for album in existing_albums:
+            action_album = submenu_add_to_album.addAction(album["name"])
+            action_album.setData(("add_to_album", album["id"]))
+        if existing_albums:
+            submenu_add_to_album.addSeparator()
+        action_add_to_new_album = submenu_add_to_album.addAction(render_svg_icon("add", size=14), self.tr("menu.add_to_album_new"))
+
+        action_remove_from_album = None
+        if self.active_album_id is not None:
+            action_remove_from_album = menu.addAction(render_svg_icon("delete", size=16), f"{self.tr('menu.remove_from_album')}{count_suffix}")
+
+        chosen = menu.exec(list_widget.viewport().mapToGlobal(pos))
+
+        image_ids = [it.data(Qt.UserRole) for it in selected_items]
+
+        rule_override = None
+        album_name_for_rule = None
+        if list_widget is self.album_list and self.active_album_id is not None:
+            rule_override = database.get_album_naming_rule(self.active_album_id)
+            album_name_for_rule = database.get_album_name(self.active_album_id)
 
         if chosen == action_reveal:
             self.reveal_in_file_manager(file_paths)
@@ -4377,11 +5357,447 @@ class AIImageViewerApp(QMainWindow):
             QApplication.clipboard().setText("\n".join(file_paths))
             self.show_status_message(self.tr("status.file_path_copied"), 4000)
         elif chosen == action_copy_renamed:
-            self.copy_files_with_sequence_rename(file_paths)
+            self.copy_files_with_sequence_rename(file_paths, rule_override=rule_override, album_name=album_name_for_rule)
         elif action_bulk_rename is not None and chosen == action_bulk_rename:
-            self.bulk_rename_selected(selected_items)
+            self.bulk_rename_selected(selected_items, list_widget=list_widget, rule_override=rule_override, album_name=album_name_for_rule)
         elif chosen == action_lock_toggle:
             self.toggle_lock_selected(selected_items, not anchor_locked)
+        elif chosen == action_add_to_new_album:
+            self.create_album(add_image_ids=image_ids)
+        elif chosen == action_remove_from_album:
+            self.remove_images_from_album(self.active_album_id, image_ids)
+        elif chosen is not None and isinstance(chosen.data(), tuple) and chosen.data()[0] == "add_to_album":
+            self.add_images_to_album(chosen.data()[1], image_ids)
+
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+
+    def switch_to_images_mode(self):
+        """通常の画像リスト表示に切り替える（フォルダ別グループ表示はこちらの内部の話で、
+        アルバム表示とは独立した別機能）。"""
+        self.browse_mode = "images"
+        database.set_setting("browse_mode", "images")
+        self.active_album_id = None
+        self.btn_clear_album_filter.setVisible(False)
+        self.btn_add_album.setVisible(False)
+        self.btn_browse_images.setObjectName("btn_preview_size_active")
+        self.btn_browse_albums.setObjectName("btn_preview_size")
+        self.btn_browse_images.setIcon(render_svg_icon("folder", size=ICON_SIZE_MD, color=SVG_ICON_COLOR_ON_ACCENT))
+        self.btn_browse_albums.setIcon(render_svg_icon("album_stack", size=ICON_SIZE_MD, color=SVG_ICON_COLOR))
+        self._repolish(self.btn_browse_images)
+        self._repolish(self.btn_browse_albums)
+        self.load_images_from_db()
+        self._apply_view_control_enabled_state()
+        self._update_reading_mode_button_enabled()
+
+    def switch_to_albums_mode(self):
+        """アルバム一覧表示に切り替える（画像リストの代わりに、image_list_stack内の
+        album_pageを表示する）。"""
+        self.browse_mode = "albums"
+        database.set_setting("browse_mode", "albums")
+        self.active_album_id = None
+        self.btn_clear_album_filter.setVisible(False)
+        self.btn_add_album.setVisible(True)
+        self.btn_browse_images.setObjectName("btn_preview_size")
+        self.btn_browse_albums.setObjectName("btn_preview_size_active")
+        self.btn_browse_images.setIcon(render_svg_icon("folder", size=ICON_SIZE_MD, color=SVG_ICON_COLOR))
+        self.btn_browse_albums.setIcon(render_svg_icon("album_stack", size=ICON_SIZE_MD, color=SVG_ICON_COLOR_ON_ACCENT))
+        self._repolish(self.btn_browse_images)
+        self._repolish(self.btn_browse_albums)
+        self.load_albums_into_sidebar()
+        self.image_list_stack.setCurrentWidget(self.album_page)
+        self._apply_view_control_enabled_state()
+        self._update_reading_mode_button_enabled()
+
+    def _apply_view_control_enabled_state(self):
+        """グリッドサイズボタン・リスト/グリッド切り替え・フォルダ別グループ表示切り替えの
+        表示/非表示を、現在のbrowse_mode（画像/アルバム）に応じて整える。
+        アルバム表示中はこれらの操作がアルバム表示に直接関係しないため、ボタンごと非表示にする
+        （2026-08-19〜、要望対応：グレーアウトは識別しづらいとのフィードバックを受け、
+        setEnabled(False)によるグレーアウトではなくsetVisible(False)による非表示に変更）。
+        画像モードに戻った際は、view_mode/group_modeの組み合わせに応じた本来の
+        表示・有効/無効状態（toggle_view_mode/toggle_group_modeが管理する相互排他）に復元する。"""
+        if self.browse_mode == "albums":
+            self.btn_view_toggle.setVisible(False)
+            self.btn_group_toggle.setVisible(False)
+            self.btn_grid_small.setVisible(False)
+            self.btn_grid_medium.setVisible(False)
+            self.btn_grid_large.setVisible(False)
+            return
+        self.btn_view_toggle.setVisible(True)
+        self.btn_group_toggle.setVisible(True)
+        self.btn_grid_small.setVisible(True)
+        self.btn_grid_medium.setVisible(True)
+        self.btn_grid_large.setVisible(True)
+        self.btn_grid_small.setEnabled(True)
+        self.btn_grid_medium.setEnabled(True)
+        self.btn_grid_large.setEnabled(True)
+        if self.group_mode == "folder":
+            self.btn_view_toggle.setEnabled(False)
+            self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_disabled_grouped"))
+        else:
+            self.btn_view_toggle.setEnabled(True)
+            self.btn_view_toggle.setToolTip(
+                self.tr("main.tooltip.view_toggle_to_grid") if self.view_mode == "list"
+                else self.tr("main.tooltip.view_toggle_to_list")
+            )
+        if self.view_mode == "grid":
+            self.btn_group_toggle.setEnabled(False)
+            self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_disabled_grid"))
+        else:
+            self.btn_group_toggle.setEnabled(True)
+            self.btn_group_toggle.setToolTip(
+                self.tr("main.tooltip.group_toggle_disable") if self.group_mode == "folder"
+                else self.tr("main.tooltip.group_toggle_enable")
+            )
+
+    def build_album_list_item(self, album, is_collapsed):
+        """アルバム一覧の見出し行分の QListWidgetItem を作る。画像リストの「フォルダ別グループ表示」
+        見出し行と全く同じデリゲート（FolderHeaderDelegate）・同じ操作感（▶/▼で折りたたみ）で
+        描画されるよう、同じデータロール（UserRole+8=名前, UserRole+12=件数, UserRole+13=注記,
+        UserRole+14=▶/▼インジケータ）を使う。UserRole自体は常にNoneにしておく必要がある
+        （デリゲートの「見出し判定」、およびクリック時の「見出し行かどうか」の判定に使うため）。
+        アルバムidは衝突しない専用ロール（UserRole+30）に保持する。
+        アイコンは画像リストの実フォルダ見出しと同型のSVGフォルダアイコンを、黄色系で着色して使う
+        （2026-08-20〜、プレビュー用の一時変更）。
+        サイズは実フォルダ見出し（OSネイティブアイコン、リストのiconSize=60に追従して十分な解像度で
+        描画される）と行の高さを揃えるため、リストのiconSizeと同じ60を指定する（小さいサイズ
+        （例: 16）のままだと、Qtが見出し行の高さをアイコンの実解像度基準で計算してしまい、
+        実フォルダ見出しより行の上下余白が詰まって見える問題があった）。"""
+        item = QListWidgetItem("")
+        item.setIcon(render_svg_icon("folder", size=60, color="#F2B134"))
+        item.setData(Qt.UserRole, None)
+        item.setData(Qt.UserRole + 8, album["name"])
+        item.setData(Qt.UserRole + 12, album["image_count"])
+        item.setData(Qt.UserRole + 13, "")
+        item.setData(Qt.UserRole + 14, "▶" if is_collapsed else "▼")
+        item.setData(Qt.UserRole + 30, album["id"])
+        hint = self.tr("album.header.tooltip_collapsed") if is_collapsed else self.tr("album.header.tooltip_expanded")
+        item.setToolTip(f"{album['name']}\n{hint}")
+        item.setFlags(Qt.ItemIsEnabled)
+        c = self.theme_colors
+        item.setBackground(QColor(c['group_header_bg']))
+        item.setForeground(QColor(c['list_text']))
+        return item
+
+    def load_albums_into_sidebar(self):
+        """アルバム一覧をDBから読み込み、アルバムページのリストを再構築する。
+        画像リストのフォルダ別グループ表示と同じ操作感にするため（2026-08-18〜）、
+        折りたたんでいないアルバムは見出し行の直下にそのアルバムの画像をそのまま並べる
+        （画像行のクリックで、その画像をプレビュー・編集できる。詳細はon_album_item_clicked参照）。
+        アルバム作成・名前変更・削除・追加/削除・折りたたみ操作のたびに呼び直して最新化する。"""
+        self.album_list.clear()
+        icon_px = 60
+        for album in database.get_all_albums():
+            is_collapsed = album["id"] in self.collapsed_albums
+            self.album_list.addItem(self.build_album_list_item(album, is_collapsed))
+            if is_collapsed:
+                continue
+            member_ids = database.get_album_image_ids(album["id"])
+            if not member_ids:
+                continue
+            conn = sqlite3.connect(database.get_current_db_path())
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, file_path, file_name, prompt, negative_prompt, other_metadata, rating, "
+                "file_mtime, updated_at, is_locked, imported_at, file_size, memo FROM images "
+                f"ORDER BY {self.sort_expr} {self.sort_dir}, file_name COLLATE NOCASE ASC"
+            )
+            rows = [row for row in cursor.fetchall() if row[0] in member_ids and self._path_exists(row[1])]
+            conn.close()
+            rows = self._sort_rows_by_actual_filename(rows)
+            for row in rows:
+                row_item = self.build_image_list_item(row, icon_px)
+                row_item.setData(Qt.UserRole + 31, album["id"])
+                self.album_list.addItem(row_item)
+        self._update_library_status()
+        self.filter_albums()
+
+    def toggle_album_collapsed(self, album_id):
+        """指定アルバムの画像一覧の表示/非表示を切り替える（フォルダ別グループ表示のtoggle_folder_collapsedと同じ考え方）。
+        次回起動時にも復元できるよう、都度DBへ保存する（2026-08-20〜）。"""
+        if album_id in self.collapsed_albums:
+            self.collapsed_albums.discard(album_id)
+        else:
+            self.collapsed_albums.add(album_id)
+        database.set_collapsed_albums(self.collapsed_albums)
+        self.load_albums_into_sidebar()
+
+    def on_album_item_clicked(self, item):
+        """アルバム一覧の行がクリックされた時の処理。
+        見出し行（アルバム名の行）なら、フォルダ別グループ表示と同じ操作感で折りたたみ/展開する。
+        展開中の画像行のクリック時のプレビュー連携は、キーボードの上下キーでの移動にも
+        対応させるためon_album_current_item_changed（currentItemChanged）側に一本化した
+        （クリックでもcurrentItemが変わるため、そちらで処理される。2026-08-19〜）。"""
+        if self.album_list._suppress_next_header_click:
+            self.album_list._suppress_next_header_click = False
+            return
+        if item.data(Qt.UserRole) is None:
+            album_id = item.data(Qt.UserRole + 30)
+            self.active_header_album_id = album_id
+            self.toggle_album_collapsed(album_id)
+
+    def on_album_current_item_changed(self, current, previous):
+        """アルバム一覧側の「現在の行」がクリックだけでなくキーボードの上下キーでも変わった際に、
+        プレビュー側（self.image_list経由）と選択状態を連動させる。
+        見出し行（画像データを持たない行）が現在の行になった場合は何もしない
+        （見出し行はItemIsSelectableフラグを持たないため、通常は現在の行にならない想定だが、
+        念のためガードしておく）。"""
+        if current is None or current.data(Qt.UserRole) is None:
+            return
+        img_id = current.data(Qt.UserRole)
+        album_id = current.data(Qt.UserRole + 31)
+        if img_id == self.current_image_id and album_id == self.active_album_id:
+            return
+        self.active_album_id = album_id
+        self.btn_clear_album_filter.setVisible(True)
+        self.load_images_from_db()
+        self.select_item_by_id(img_id)
+        self._update_reading_mode_button_enabled()
+
+    def clear_album_filter(self):
+        """アルバムの中身の表示をやめ、アルバム一覧（album_page）に戻る
+        （browse_modeは"albums"のまま。フォルダ表示へ完全に戻る場合はswitch_to_images_modeを使う）。"""
+        self.active_album_id = None
+        self.btn_clear_album_filter.setVisible(False)
+        self.album_list.clearSelection()
+        self.load_albums_into_sidebar()
+        self.image_list_stack.setCurrentWidget(self.album_page)
+        self._update_reading_mode_button_enabled()
+
+    def create_album(self, add_image_ids=None):
+        """新しいアルバムを作成する。既定の名前は「Seed Book {次の番号}」（そのまま編集も可能）。
+        add_image_idsを指定した場合、作成直後にその画像をまとめて追加する
+        （右クリックメニュー「新しいアルバムを作成...」から呼ばれる場合）。
+        このダイアログでアルバム専用の自動採番ルールを有効にした場合、追加する画像が
+        1枚だけでもその場で連番を適用する（2026-08-20〜、要望対応：従来は採番ルールを
+        設定しても、作成時に追加した画像には何も適用されず、別途右クリックで
+        一括リネームし直す必要があった）。"""
+        default_name = f"Seed Book {len(database.get_all_albums()) + 1}"
+        dialog = AlbumCreateDialog(self, default_name)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        name, naming_rule = dialog.get_result()
+        if not name:
+            return
+        album_id = database.add_album(name)
+        if naming_rule is not None:
+            database.set_album_naming_rule(album_id, naming_rule["prefix"], naming_rule["digits"], naming_rule["append"])
+        if add_image_ids:
+            database.add_images_to_album(album_id, add_image_ids)
+            self.show_status_message(self.tr("album.notify.added").format(count=len(add_image_ids), name=name), 4000)
+            if naming_rule is not None:
+                self._apply_naming_rule_to_image_ids(add_image_ids, naming_rule, album_name=name)
+        if self.browse_mode == "albums":
+            self.load_albums_into_sidebar()
+
+    def _apply_naming_rule_to_image_ids(self, image_ids, naming_rule, album_name=None):
+        """指定した画像ID群（1枚のみでも可）の「名前」欄に、渡された採番ルールをその場で
+        適用する。アルバム作成と同時に採番ルールを設定した場合に使う（image_idsの並び順を
+        採番順として使う）。編集ロック中の画像は他の一括操作と同様に対象外とする。"""
+        if not image_ids:
+            return
+        locked_ids = database.get_locked_ids(image_ids)
+        target_ids = [img_id for img_id in image_ids if img_id not in locked_ids]
+        if not target_ids:
+            return
+        conn = sqlite3.connect(database.get_current_db_path())
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in target_ids)
+        cursor.execute(f"SELECT id, file_path FROM images WHERE id IN ({placeholders})", target_ids)
+        path_by_id = dict(cursor.fetchall())
+        folder_dirs = [os.path.dirname(path_by_id.get(img_id, "") or "") for img_id in target_ids]
+        new_names = self._build_sequence_names(folder_dirs, rule_override=naming_rule, album_name=album_name)
+        for img_id, new_base in zip(target_ids, new_names):
+            cursor.execute(
+                "UPDATE images SET file_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (new_base, img_id)
+            )
+        conn.commit()
+        conn.close()
+
+    def show_album_context_menu(self, pos):
+        """アルバム一覧の右クリックメニュー。見出し行を右クリックした場合はアルバム専用メニューを、
+        展開中の画像行を右クリックした場合は画像リストと共通の画像用メニュー
+        （_show_image_row_context_menu）を出す（2026-08-20〜、画像行の右クリックメニュー未実装を修正）。
+        見出し行メニューは、画像リストのフォルダ見出しメニューと同じ並び・同じ項目立てにしている（2026-08-18〜）：
+        並び順編集 / 名前を変更 / すべて開く・折りたたむ / 一括で書き出す（連番リネーム） /
+        アルバム専用の自動採番を設定 / アルバムを削除。"""
+        item = self.album_list.itemAt(pos)
+        if item is None:
+            return
+        if item.data(Qt.UserRole) is not None:
+            self._show_image_row_context_menu(self.album_list, pos, item)
+            return
+        album_id = item.data(Qt.UserRole + 30)
+        album_name = item.data(Qt.UserRole + 8)
+        menu = QMenu(self)
+        menu.setStyleSheet(self.get_menu_stylesheet())
+        action_edit_order = menu.addAction(render_svg_icon("sort", size=16), self.tr("menu.album_edit_order"))
+        menu.addSeparator()
+        action_rename = menu.addAction(render_svg_icon("release_notes", size=16), self.tr("album.menu.rename"))
+        menu.addSeparator()
+        self._add_album_expand_collapse_actions(menu)
+        menu.addSeparator()
+        action_copy_renamed = menu.addAction(render_svg_icon("content_copy", size=16), self.tr("menu.album_copy_renamed"))
+        menu.addSeparator()
+        action_naming_rule = menu.addAction(render_svg_icon("release_notes", size=16), self.tr("menu.album_naming_rule"))
+        menu.addSeparator()
+        action_delete = menu.addAction(render_svg_icon("delete", size=16), self.tr("menu.album_delete"))
+        chosen = menu.exec(self.album_list.viewport().mapToGlobal(pos))
+        if chosen == action_edit_order:
+            self.open_album_order_dialog()
+        elif chosen == action_rename:
+            self.rename_album_dialog(album_id, album_name)
+        elif chosen == action_copy_renamed:
+            self.copy_album_with_sequence_rename(album_id, album_name)
+        elif chosen == action_naming_rule:
+            self.open_album_naming_rule_dialog(album_id, album_name)
+        elif chosen == action_delete:
+            self.delete_album_dialog(album_id, album_name)
+
+    def _add_album_expand_collapse_actions(self, menu):
+        """「すべてのアルバムを開く/折りたたむ」の2項目をメニューに追加する
+        （画像リストの_add_folder_expand_collapse_actionsと同じ考え方）。"""
+        action_expand_all = menu.addAction(render_svg_icon("all_folder_open", size=16), self.tr("menu.expand_all_albums"))
+        action_collapse_all = menu.addAction(render_svg_icon("all_folder_close", size=16), self.tr("menu.collapse_all_albums"))
+        action_expand_all.triggered.connect(self.expand_all_albums)
+        action_collapse_all.triggered.connect(self.collapse_all_albums)
+
+    def expand_all_albums(self):
+        self.collapsed_albums.clear()
+        database.set_collapsed_albums(self.collapsed_albums)
+        self.load_albums_into_sidebar()
+
+    def collapse_all_albums(self):
+        self.collapsed_albums = {album["id"] for album in database.get_all_albums()}
+        database.set_collapsed_albums(self.collapsed_albums)
+        self.load_albums_into_sidebar()
+
+    def open_album_order_dialog(self):
+        """アルバムの並び順を編集するダイアログを開く（画像リストのFolderOrderDialogと同じ考え方）。"""
+        dialog = AlbumOrderDialog(self, database.get_all_albums())
+        if dialog.exec() == QDialog.Accepted:
+            self.load_albums_into_sidebar()
+
+    def copy_album_with_sequence_rename(self, album_id, album_name):
+        """アルバムの右クリックメニューから、そのアルバムに含まれる画像を連番リネームしながら
+        指定フォルダへコピーする。アルバム専用の自動採番（album_naming_rules）が設定されていれば
+        それを優先し、無ければアプリ全体の既定ルールを使う（フォルダ専用ルールは参照しない。
+        アルバムは複数の実フォルダにまたがり得るため、書き出し操作ごとに使うルールを
+        「フォルダ起点／アルバム起点」で完全に分けている。詳細は_build_sequence_names参照）。"""
+        member_ids = database.get_album_image_ids(album_id)
+        if not member_ids:
+            show_notification(self, self.tr("common.title.copy"), self.tr("notify.copy_target_not_found"))
+            return
+        conn = sqlite3.connect(database.get_current_db_path())
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in member_ids)
+        cursor.execute(f"SELECT file_path FROM images WHERE id IN ({placeholders})", list(member_ids))
+        file_paths = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        rule_override = database.get_album_naming_rule(album_id)
+        self.copy_files_with_sequence_rename(file_paths, context_label=f"アルバム「{album_name}」: ", rule_override=rule_override, album_name=album_name)
+
+    def open_album_naming_rule_dialog(self, album_id, album_name):
+        """アルバムの右クリックメニューから、そのアルバム専用の命名ルール上書きダイアログを開く。"""
+        dialog = AlbumNamingRuleDialog(self, album_id, album_name)
+        if dialog.exec() == QDialog.Accepted:
+            self.show_status_message(self.tr("album.notify.naming_rule_saved").format(name=album_name), 5000)
+
+    def build_album_export_folder(self, album_id, album_name):
+        """アルバムをFinder等へドラッグ&ドロップする際、そのアルバムの画像をコピーした
+        一時フォルダを作成し、そのパスを返す（2026-08-18〜）。アルバムは実フォルダを持たない
+        仮想グループのため、フォルダ見出しの場合と違い、ドラッグの度に一時フォルダへ実体化してから
+        渡す必要がある（Finder側には自動的に「フォルダ」として渡る）。画像が1件も無い場合はNoneを返す。"""
+        member_ids = database.get_album_image_ids(album_id)
+        if not member_ids:
+            return None
+        conn = sqlite3.connect(database.get_current_db_path())
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in member_ids)
+        cursor.execute(f"SELECT file_path FROM images WHERE id IN ({placeholders})", list(member_ids))
+        file_paths = [row[0] for row in cursor.fetchall() if row[0] and os.path.exists(row[0])]
+        conn.close()
+        if not file_paths:
+            return None
+        safe_name = "".join(c for c in album_name if c not in '/\\:*?"<>|').strip() or "Album"
+        export_dir = os.path.join(tempfile.mkdtemp(prefix="seedbook_album_"), safe_name)
+        os.makedirs(export_dir, exist_ok=True)
+        used_names = set()
+        for fp in file_paths:
+            base = os.path.basename(fp)
+            stem, ext = os.path.splitext(base)
+            target_name = base
+            n = 1
+            while target_name in used_names or os.path.exists(os.path.join(export_dir, target_name)):
+                target_name = f"{stem}_{n}{ext}"
+                n += 1
+            used_names.add(target_name)
+            try:
+                shutil.copy2(fp, os.path.join(export_dir, target_name))
+            except OSError:
+                pass
+        return export_dir
+
+    def rename_album_dialog(self, album_id, old_name):
+        new_name, ok = QInputDialog.getText(
+            self, self.tr("album.dialog.rename.title"), self.tr("album.dialog.rename.label"), text=old_name
+        )
+        new_name = new_name.strip() if new_name else ""
+        if not ok or not new_name:
+            return
+        database.rename_album(album_id, new_name)
+        self.load_albums_into_sidebar()
+
+    def delete_album_dialog(self, album_id, album_name):
+        reply = show_confirm_dialog(
+            self, self.tr("album.confirm.delete.title"),
+            self.tr("album.confirm.delete.body").format(name=album_name)
+        )
+        if reply != QMessageBox.Yes:
+            return
+        database.delete_album(album_id)
+        if self.active_album_id == album_id:
+            self.active_album_id = None
+            self.btn_clear_album_filter.setVisible(False)
+            self.image_list_stack.setCurrentWidget(self.album_page)
+            self._update_reading_mode_button_enabled()
+        self.load_albums_into_sidebar()
+
+    def add_images_to_album(self, album_id, image_ids):
+        """複数画像をまとめて指定アルバムに追加し、サイドバーの件数表示を更新する。"""
+        image_ids = [i for i in image_ids if i is not None]
+        if not image_ids:
+            return
+        database.add_images_to_album(album_id, image_ids)
+        self.load_albums_into_sidebar()
+        self.show_status_message(self.tr("album.notify.added_count").format(count=len(image_ids)), 4000)
+
+    def remove_images_from_album(self, album_id, image_ids):
+        """複数画像をまとめて指定アルバムから外す（画像自体は削除しない）。
+        現在そのアルバムを表示中であれば、画像リストからも即座に消える。"""
+        image_ids = [i for i in image_ids if i is not None]
+        if not image_ids:
+            return
+        database.remove_images_from_album(album_id, image_ids)
+        self.load_albums_into_sidebar()
+        if self.active_album_id == album_id:
+            self.load_images_from_db()
+        self.show_status_message(self.tr("album.notify.removed_count").format(count=len(image_ids)), 4000)
+
+    def add_dropped_paths_to_album(self, album_id, file_paths):
+        """画像リストからアルバム行へドラッグ&ドロップされたファイルパスの一覧を、
+        DB上の画像idに変換してアルバムへ追加する（DB未登録のパスは無視する）。"""
+        if not file_paths:
+            return
+        conn = sqlite3.connect(database.get_current_db_path())
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in file_paths)
+        cursor.execute(f"SELECT id FROM images WHERE file_path IN ({placeholders})", file_paths)
+        image_ids = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        self.add_images_to_album(album_id, image_ids)
 
     def copy_folder_with_sequence_rename(self, folder_name, folder_dir):
         """フォルダ見出しの右クリックメニューから、そのフォルダ内でDBに登録されている画像を
@@ -4458,13 +5874,19 @@ class AIImageViewerApp(QMainWindow):
         self.filter_images()
         self.select_item_by_id(selected_id)
 
-    def _build_sequence_names(self, folder_dirs):
+    def _build_sequence_names(self, folder_dirs, rule_override=None, album_name=None):
         """一括リネーム／連番コピーで共通利用する、連番ファイル名の一覧を作る。
         folder_dirs: 各対象ファイルの実フォルダの絶対パスを並べたリスト。
+        rule_override を指定した場合（{"prefix","digits","append"}の辞書）、フォルダ専用ルールの
+        検索を行わず、全項目にこのルールを一律適用する（2026-08-18〜、アルバム専用の自動採番用。
+        アルバムは複数の実フォルダにまたがる画像を含み得るため、フォルダ側のルールとは独立して
+        「アルバム起点の書き出し」だけに適用したい時に使う。指定が無ければ従来通り、
         フォルダ専用の自動採番（folder_naming_rules）が設定されていればそれを優先し、
-        無ければアプリ全体の既定ルールを使う（2026-08-15〜。フォルダ専用ルールは、新規取り込みだけでなく
-        既存画像の一括リネーム・一括で書き出すにも同じ優先順位で適用される）。
+        無ければアプリ全体の既定ルールを使う（2026-08-15〜）。
         {フォルダ名}プレースホルダーは各フォルダの実際のフォルダ名で解決する。
+        album_name を指定した場合（アルバム起点の操作の場合）は、{フォルダ名}の代わりに
+        {アルバム名}プレースホルダーをこのアルバム名で解決する（2026-08-20〜。アルバムは
+        複数の実フォルダにまたがり得るため、フォルダ名ではなくアルバム名を使う方が実態に合う）。
         解決後の (プレフィックス, アペンド) の組み合わせごとに1から独立して連番を振る
         （このカウンタは一時的なもので、取り込み時の永続カウンタには影響しない）。
         戻り値は folder_dirs と同じ並び順・同じ件数の新しいベース名（拡張子なし）のリスト。"""
@@ -4476,24 +5898,28 @@ class AIImageViewerApp(QMainWindow):
         new_names = []
         for folder_dir in folder_dirs:
             folder_name = os.path.basename(folder_dir) if folder_dir else ""
-            rule = database.get_folder_naming_rule(folder_dir) if folder_dir else None
+            if rule_override is not None:
+                rule = rule_override
+            else:
+                rule = database.get_folder_naming_rule(folder_dir) if folder_dir else None
             if rule is not None:
                 prefix_raw, digits, append_raw = rule["prefix"], rule["digits"], rule["append"]
             else:
                 prefix_raw, digits, append_raw = default_prefix, default_digits, default_append
 
-            prefix = database.resolve_naming_placeholders(prefix_raw, folder_name)
-            append = database.resolve_naming_placeholders(append_raw, folder_name)
+            prefix = database.resolve_naming_placeholders(prefix_raw, folder_name, album_name=album_name)
+            append = database.resolve_naming_placeholders(append_raw, folder_name, album_name=album_name)
             key = (prefix, append)
             n = counters.get(key, 1)
             counters[key] = n + 1
             new_names.append(f"{prefix}{n:0{digits}d}{append}")
         return new_names
 
-    def copy_files_with_sequence_rename(self, file_paths, context_label=""):
-        """選択画像／フォルダ内の画像を、設定済みの自動採番ルールで連番リネームしつつ、
+    def copy_files_with_sequence_rename(self, file_paths, context_label="", rule_override=None, album_name=None):
+        """選択画像／フォルダ・アルバム内の画像を、設定済みの自動採番ルールで連番リネームしつつ、
         指定したフォルダへ書き出す（元ファイルはそのまま・そのままの名前でコピーするだけの
-        Finderドラッグ&ドロップとは違い、名前を採番形式に揃えたコピーを作りたい場合に使う）。"""
+        Finderドラッグ&ドロップとは違い、名前を採番形式に揃えたコピーを作りたい場合に使う）。
+        rule_override・album_name はアルバム起点の書き出し用（_build_sequence_names参照）。"""
         file_paths = [fp for fp in file_paths if fp and os.path.exists(fp)]
         if not file_paths:
             show_notification(self, self.tr("common.title.copy"), self.tr("notify.copy_target_not_found"))
@@ -4504,7 +5930,7 @@ class AIImageViewerApp(QMainWindow):
             return
 
         folder_dirs = [os.path.dirname(fp) for fp in file_paths]
-        new_names = self._build_sequence_names(folder_dirs)
+        new_names = self._build_sequence_names(folder_dirs, rule_override=rule_override, album_name=album_name)
 
         if database.get_setting("rename_show_edit_dialog", "0") == "1":
             rows = [(os.path.basename(fp), name) for fp, name in zip(file_paths, new_names)]
@@ -4539,7 +5965,7 @@ class AIImageViewerApp(QMainWindow):
             self.status_message_label.setToolTip("")
         self.show_status_message(msg, 6000)
 
-    def bulk_rename_selected(self, selected_items):
+    def bulk_rename_selected(self, selected_items, list_widget=None, rule_override=None, album_name=None):
         """複数選択した画像を、設定済みの自動採番ルール（プレフィックス・桁数・アペンド）で
         一括してリネームする。対象は常に「名前」欄（DB上の表示名）のみで、
         パソコン上の実ファイル名は変更しない（2026-08-15〜。以前はディスク上の実ファイルも
@@ -4548,12 +5974,16 @@ class AIImageViewerApp(QMainWindow):
 
         - 番号は、この一括リネーム専用の一時的なカウンタで1から採番する（インポート時の
           永続カウンタ〈peek_next_sequence_number等〉には影響しない）
-        - プレフィックス・アペンドに{フォルダ名}が含まれる場合、選択画像の実フォルダごとに
-          解決した上で、フォルダ（＝解決後の組み合わせ）ごとに別々に1から採番する
-          （フォルダ専用の自動採番が設定されていれば、そちらが優先される）
+        - rule_override を指定した場合（アルバム内画像の選択時など）は、フォルダ専用ルールや
+          アプリ全体の既定ルールより優先してこちらを一律適用する（2026-08-20〜）
+        - rule_override が無い場合、プレフィックス・アペンドに{フォルダ名}が含まれるときは、
+          選択画像の実フォルダごとに解決した上で、フォルダ（＝解決後の組み合わせ）ごとに
+          別々に1から採番する（フォルダ専用の自動採番が設定されていれば、そちらが優先される）
         - 編集ロック中の画像は対象外（他の一括操作と同じ挙動）
-        - リスト表示中の並び順をそのまま採番順として使う"""
-        selected_items = sorted(selected_items, key=lambda it: self.image_list.row(it))
+        - リスト表示中の並び順をそのまま採番順として使う
+        - list_widget は選択元のリスト（省略時はself.image_list）。並び順の判定に使う"""
+        list_widget = list_widget or self.image_list
+        selected_items = sorted(selected_items, key=lambda it: list_widget.row(it))
 
         locked_items = [it for it in selected_items if bool(it.data(Qt.UserRole + 7))]
         target_items = [it for it in selected_items if not bool(it.data(Qt.UserRole + 7))]
@@ -4564,7 +5994,7 @@ class AIImageViewerApp(QMainWindow):
         target_paths = [it.data(Qt.UserRole + 1) for it in target_items]
         current_names = [it.data(Qt.UserRole + 18) or "" for it in target_items]
         folder_dirs = [os.path.dirname(fp) for fp in target_paths]
-        new_names = self._build_sequence_names(folder_dirs)
+        new_names = self._build_sequence_names(folder_dirs, rule_override=rule_override, album_name=album_name)
 
         if database.get_setting("rename_show_edit_dialog", "0") == "1":
             rows = list(zip(current_names, new_names))
@@ -4990,11 +6420,40 @@ class AIImageViewerApp(QMainWindow):
         else:
             show_sync_result_dialog(self, self.tr("common.title.sync_complete"), result_msg)
 
+    def _mark_dirty(self, *_args):
+        """編集欄（ファイル名・名前・プロンプト・メタデータ・メモ・星評価）のいずれかが
+        変更されたときに呼ばれる。フィールドへの値の読み込み中（_loading_metadata）は
+        無視する（2026-08-20〜、要望対応：未保存の編集に気づかず画像送りで移動してしまう
+        問題への対策）。"""
+        if self._loading_metadata:
+            return
+        self._set_dirty_state(True)
+
+    def _set_dirty_state(self, dirty):
+        """未保存状態の表示を更新する。保存ボタンの色・ファイル名ラベルの表示を切り替える。
+        複数選択時（btn_save_multi）はこの表示を横取りしない。"""
+        self._is_dirty = dirty
+        if self.btn_save.objectName() == "btn_save_multi":
+            return
+        self.btn_save.setObjectName("btn_save_dirty" if dirty else "btn_save")
+        self.btn_save.setToolTip(self.tr("metadata.tooltip.unsaved") if dirty else "")
+        self._repolish(self.btn_save)
+
     def on_image_selected(self):
-        selected_items = self.image_list.selectedItems()
+        """選択中の画像に応じて、右側の編集欄・保存/削除ボタンの表示を更新する。
+        アルバム表示中は、選択状態がself.album_list側にあるため、browse_modeに応じて
+        参照する一覧を切り替える（2026-08-20〜、要望対応：アルバム内画像の複数選択時に
+        星評価などが正しく反映されない不具合の修正。image_list.itemSelectionChangedだけでなく
+        album_list.itemSelectionChangedからもこのメソッドが呼ばれるようにしている）。"""
+        sender = self.sender()
+        if sender in (self.image_list, self.album_list):
+            active_list = sender
+        else:
+            active_list = self.album_list if self.browse_mode == "albums" else self.image_list
+        selected_items = [item for item in active_list.selectedItems() if item.data(Qt.UserRole) is not None]
         if not selected_items:
             return
-            
+
         if len(selected_items) > 1:
             self.btn_delete.setText(self.tr("main.button.delete_selected_count").format(count=len(selected_items)))
             self.btn_save.setText(self.tr("main.button.save_selected_ratings").format(count=len(selected_items)))
@@ -5002,6 +6461,7 @@ class AIImageViewerApp(QMainWindow):
             self.btn_save.setIcon(render_svg_icon("save", size=16, color=SVG_ICON_COLOR_ON_ACCENT))
             self._repolish(self.btn_save)
 
+            self._loading_metadata = True
             self.txt_filename.setEnabled(False)
             self.txt_filename.setText(self.tr("main.multi_select.filename_placeholder"))
             self.txt_display_name.setEnabled(False)
@@ -5011,6 +6471,8 @@ class AIImageViewerApp(QMainWindow):
             self.txt_metadata.setEnabled(False)
             self.txt_memo.setEnabled(False)
             self.txt_memo.setText("")
+            self._loading_metadata = False
+            self._is_dirty = False
             self.btn_clear_model.setEnabled(False)
             self.btn_clear_prompt.setEnabled(False)
             self.btn_clear_neg_prompt.setEnabled(False)
@@ -5022,6 +6484,12 @@ class AIImageViewerApp(QMainWindow):
             f_path = item.data(Qt.UserRole + 1)
             self.current_preview_path = f_path
             self.refresh_preview_pixmap()
+            if self.browse_mode == "albums":
+                self.active_header_album_id = item.data(Qt.UserRole + 31)
+                self.album_list.viewport().update()
+            else:
+                self.active_header_folder_name = item.data(Qt.UserRole + 9)
+                self.image_list.viewport().update()
             return
 
         self.txt_filename.setEnabled(True)
@@ -5044,7 +6512,13 @@ class AIImageViewerApp(QMainWindow):
         is_locked = bool(item.data(Qt.UserRole + 7))
         
         self.current_image_id = img_id
-        
+        if self.browse_mode == "albums":
+            self.active_header_album_id = item.data(Qt.UserRole + 31)
+            self.album_list.viewport().update()
+        else:
+            self.active_header_folder_name = item.data(Qt.UserRole + 9)
+            self.image_list.viewport().update()
+
         conn = sqlite3.connect(database.get_current_db_path())
         cursor = conn.cursor()
         cursor.execute("SELECT file_name, prompt, negative_prompt, other_metadata, rating, memo FROM images WHERE id = ?", (img_id,))
@@ -5053,6 +6527,7 @@ class AIImageViewerApp(QMainWindow):
 
         if row:
             f_name, prompt, neg_prompt, others, rating, memo = row
+            self._loading_metadata = True
             self.txt_filename.setText(os.path.basename(f_path))
             self.txt_display_name.setText(f_name)
             self.star_rating.set_rating(rating if rating <= 5 else 0)
@@ -5061,6 +6536,8 @@ class AIImageViewerApp(QMainWindow):
             self.txt_metadata.setPlainText(others if others else "")
             self.txt_memo.setText(memo if memo else "")
             self.txt_model.setPlainText(self.extract_model_name(others))
+            self._loading_metadata = False
+            self._set_dirty_state(False)
             self.update_generation_params_display(others)
             QTimer.singleShot(0, self.autosize_all_metadata_fields)
         
@@ -5110,18 +6587,23 @@ class AIImageViewerApp(QMainWindow):
         QTimer.singleShot(1200, _restore)
 
     def save_metadata_changes(self):
-        selected_items = self.image_list.selectedItems()
+        """選択中の画像に対して、名前・プロンプト・星評価などの変更を保存する。
+        アルバム表示中は、選択状態がself.image_list（非表示）ではなくself.album_list側に
+        あるため、browse_modeに応じて参照する一覧を切り替える必要がある
+        （2026-08-20〜、要望対応：アルバム内画像の複数選択時に星評価が保存されない不具合の修正）。"""
+        active_list = self.album_list if self.browse_mode == "albums" else self.image_list
+        selected_items = [item for item in active_list.selectedItems() if item.data(Qt.UserRole) is not None]
         if not selected_items:
             return
-            
+
         rating = self.star_rating.rating
         conn = sqlite3.connect(database.get_current_db_path())
         cursor = conn.cursor()
-        
+
         if len(selected_items) > 1:
             image_ids = [item.data(Qt.UserRole) for item in selected_items]
             locked_ids = database.get_locked_ids(image_ids)
-            
+
             for item in selected_items:
                 img_id = item.data(Qt.UserRole)
                 if img_id in locked_ids:
@@ -5129,17 +6611,25 @@ class AIImageViewerApp(QMainWindow):
                 cursor.execute("UPDATE images SET rating = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (rating, img_id))
             conn.commit()
             conn.close()
-            
-            selected_indices = [self.image_list.row(item) for item in selected_items]
-            self.load_images_from_db()
-            for idx in selected_indices:
-                if idx < self.image_list.count():
-                    self.image_list.item(idx).setSelected(True)
-            
+
+            if self.browse_mode == "albums":
+                self.load_albums_into_sidebar()
+                for i in range(self.album_list.count()):
+                    item = self.album_list.item(i)
+                    if item.data(Qt.UserRole) in image_ids:
+                        item.setSelected(True)
+            else:
+                selected_indices = [self.image_list.row(item) for item in selected_items]
+                self.load_images_from_db()
+                for idx in selected_indices:
+                    if idx < self.image_list.count():
+                        self.image_list.item(idx).setSelected(True)
+
             if locked_ids:
                 self.show_status_message(self.tr("status.rating_saved_with_locked_skipped").format(count=len(locked_ids)), 5000)
             else:
                 self.show_status_message(self.tr("status.rating_saved"), 4000)
+            self._is_dirty = False
             self._flash_save_button()
             return
 
@@ -5205,12 +6695,16 @@ class AIImageViewerApp(QMainWindow):
         """, (new_name, rating, prompt, neg_prompt, others, memo, self.current_image_id))
         conn.commit()
         conn.close()
-        
-        current_row = self.image_list.currentRow()
-        self.load_images_from_db()
-        self.image_list.setCurrentRow(current_row)
+
+        if self.browse_mode == "albums":
+            self.load_albums_into_sidebar()
+        else:
+            current_row = self.image_list.currentRow()
+            self.load_images_from_db()
+            self.image_list.setCurrentRow(current_row)
 
         self.show_status_message(self.tr("status.changes_saved"), 4000)
+        self._set_dirty_state(False)
         self._flash_save_button()
 
     def delete_image_from_db(self):
@@ -5239,6 +6733,7 @@ class AIImageViewerApp(QMainWindow):
                 img_id = item.data(Qt.UserRole)
                 f_path = item.data(Qt.UserRole + 1)
                 cursor.execute("DELETE FROM images WHERE id = ?", (img_id,))
+                cursor.execute("DELETE FROM album_images WHERE image_id = ?", (img_id,))
                 if f_path:
                     cursor.execute("INSERT OR IGNORE INTO excluded_paths (file_path) VALUES (?)", (f_path,))
             conn.commit()
@@ -5364,13 +6859,20 @@ class AIImageViewerApp(QMainWindow):
             self._repolish(self.btn_slideshow)
 
     def select_item_by_id(self, img_id):
-        """並び替え/表示切替の後に、選択されていた画像を再選択する"""
+        """並び替え/表示切替の後に、選択されていた画像を再選択する。
+        対象の行が非表示（フォルダが折りたたまれた等）の場合は、あえてsetCurrentItemを呼ばない
+        （2026-08-20〜、要望対応）。非表示の行をQListWidgetの「現在の行」にしようとすると、
+        Qt側の内部状態（currentRow()）が不安定になり、以後の画像送り（前へ/次へ）ボタンが
+        反応しなくなる不具合があった。self.current_image_idはこの時点で既に対象のidを保持して
+        いるため、リスト側の選択状態を更新しなくても、画像送りは_current_image_row()経由で
+        idベースに現在位置を特定できるので問題ない（プレビュー内容もこの時点では変更不要）。"""
         if img_id is None:
             return
         for i in range(self.image_list.count()):
             item = self.image_list.item(i)
             if item.data(Qt.UserRole) == img_id:
-                self.image_list.setCurrentItem(item)
+                if not item.isHidden():
+                    self.image_list.setCurrentItem(item)
                 break
 
     def on_sort_changed(self, index):
@@ -5383,32 +6885,38 @@ class AIImageViewerApp(QMainWindow):
             3: "COALESCE(imported_at, file_mtime)",
             4: "rating",
             5: "COALESCE(file_size, 0)",
+            6: "file_name COLLATE NOCASE",
         }
         self.sort_expr = sort_expr_map[index]
         self.sort_index = index
+        self.sort_by_actual_filename = (index == 6)
         database.set_setting("last_sort_index", str(index))
         selected_id = self.current_image_id
         self.load_images_from_db()
         self.filter_images()
         self.select_item_by_id(selected_id)
+        if self.browse_mode == "albums":
+            self.load_albums_into_sidebar()
 
     def toggle_sort_direction(self):
         """並び替えの昇順/降順を切り替える"""
         self.sort_dir = "DESC" if self.sort_dir == "ASC" else "ASC"
         database.set_setting("last_sort_dir", self.sort_dir)
         if self.sort_dir == "ASC":
-            self.btn_sort_direction.setIcon(render_svg_icon("arrow_upward", size=18))
-            self.btn_sort_direction.setIconSize(QSize(18, 18))
+            self.btn_sort_direction.setIcon(render_svg_icon("arrow_upward", size=ICON_SIZE_XL))
+            self.btn_sort_direction.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
             self.btn_sort_direction.setToolTip(self.tr("main.tooltip.sort_direction_asc"))
         else:
-            self.btn_sort_direction.setIcon(render_svg_icon("arrow_downward", size=18))
-            self.btn_sort_direction.setIconSize(QSize(18, 18))
+            self.btn_sort_direction.setIcon(render_svg_icon("arrow_downward", size=ICON_SIZE_XL))
+            self.btn_sort_direction.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
             self.btn_sort_direction.setToolTip(self.tr("main.tooltip.sort_direction_desc"))
-        
+
         selected_id = self.current_image_id
         self.load_images_from_db()
         self.filter_images()
         self.select_item_by_id(selected_id)
+        if self.browse_mode == "albums":
+            self.load_albums_into_sidebar()
 
     def toggle_view_mode(self):
         """グリッド表示とリスト表示を切り替える（アイコンのみのボタン）"""
@@ -5422,8 +6930,8 @@ class AIImageViewerApp(QMainWindow):
             self.image_list.setMovement(QListWidget.Static)
             self.apply_grid_tile_size()
             self.image_list.setSpacing(SPACING_SM)
-            self.btn_view_toggle.setIcon(render_svg_icon("view_list", size=16))
-            self.btn_view_toggle.setIconSize(QSize(16, 16))
+            self.btn_view_toggle.setIcon(render_svg_icon("view_list", size=ICON_SIZE_XL))
+            self.btn_view_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
             self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_to_list"))
             self.grid_size_widget.setVisible(True)
             self.btn_group_toggle.setEnabled(False)
@@ -5437,13 +6945,14 @@ class AIImageViewerApp(QMainWindow):
             self.image_list.setIconSize(QSize(60, 60))
             self.image_list.setGridSize(QSize())
             self.image_list.setSpacing(SPACING_XS)
-            self.btn_view_toggle.setIcon(render_svg_icon("grid_view", size=16))
-            self.btn_view_toggle.setIconSize(QSize(16, 16))
+            self.btn_view_toggle.setIcon(render_svg_icon("grid_view", size=ICON_SIZE_XL))
+            self.btn_view_toggle.setIconSize(QSize(ICON_SIZE_XL, ICON_SIZE_XL))
             self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_to_grid"))
             self.grid_size_widget.setVisible(False)
             self.btn_group_toggle.setEnabled(True)
             self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_enable") if self.group_mode == "none" else self.tr("main.tooltip.group_toggle_disable"))
-        
+
+        database.set_setting("view_mode", self.view_mode)
         self.load_images_from_db()
         self.filter_images()
         self.select_item_by_id(selected_id)
@@ -5456,14 +6965,14 @@ class AIImageViewerApp(QMainWindow):
         if self.group_mode == "folder":
             self.btn_group_toggle.setObjectName("btn_group_toggle_active")
             self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_disable"))
-            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=18, color=SVG_ICON_COLOR_ON_ACCENT))
+            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=ICON_SIZE_XL, color=SVG_ICON_COLOR_ON_ACCENT))
         else:
             self.btn_group_toggle.setObjectName("btn_view_toggle")
             self.btn_group_toggle.setToolTip(self.tr("main.tooltip.group_toggle_enable"))
-            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=18, color=SVG_ICON_COLOR))
+            self.btn_group_toggle.setIcon(render_svg_icon("group_by_folder", size=ICON_SIZE_XL, color=SVG_ICON_COLOR))
         self._repolish(self.btn_group_toggle)
-        self.btn_reading_mode.setEnabled(self.group_mode == "folder")
-        
+        self._update_reading_mode_button_enabled()
+
         if self.group_mode == "folder":
             self.btn_view_toggle.setEnabled(False)
             self.btn_view_toggle.setToolTip(self.tr("main.tooltip.view_toggle_disabled_grouped"))
@@ -5485,7 +6994,8 @@ class AIImageViewerApp(QMainWindow):
     def set_grid_tile_size(self, size_name):
         """サムネイルサイズ（小/中/大）を切り替える"""
         self.grid_tile_size = size_name
-        
+        database.set_setting("grid_tile_size", size_name)
+
         grid_icon_names = {"small": "grid_small", "medium": "grid_medium", "large": "grid_large"}
         for name, btn in self.grid_size_buttons.items():
             is_active = (name == size_name)
@@ -5537,10 +7047,10 @@ class AIImageViewerApp(QMainWindow):
             return
         mode = database.get_setting("panel_layout", "standard")
         if mode == "mirrored":
-            btn.setIcon(render_svg_icon("dock_to_left", size=18))
+            btn.setIcon(render_svg_icon("dock_to_left", size=ICON_SIZE_XL))
             btn.setToolTip(self.tr("main.tooltip.panel_flip_mirrored"))
         else:
-            btn.setIcon(render_svg_icon("dock_to_right", size=18))
+            btn.setIcon(render_svg_icon("dock_to_right", size=ICON_SIZE_XL))
             btn.setToolTip(self.tr("main.tooltip.panel_flip_standard"))
 
     def refresh_preview_pixmap(self):
@@ -5572,6 +7082,7 @@ class AIImageViewerApp(QMainWindow):
     def set_preview_size_mode(self, mode):
         """プレビューの表示サイズを「非表示」「標準」「コンパクト」に切り替える（全画面表示は別メソッド）"""
         self.preview_size_mode = mode
+        database.set_setting("preview_size_mode", mode)
 
         is_hidden = (mode == "hidden")
         self.lbl_preview.setVisible(not is_hidden)
@@ -5606,33 +7117,60 @@ class AIImageViewerApp(QMainWindow):
         if not is_hidden:
             QTimer.singleShot(0, self.refresh_preview_pixmap)
 
+    def _update_reading_mode_button_enabled(self):
+        """読書モード（見開き表示）ボタンの有効/無効を切り替える。
+        従来はフォルダ別グループ表示（実フォルダ単位）が有効な時のみ利用できたが、
+        アルバム表示中にアルバム内の画像を選択している時も、そのアルバムを単位として
+        利用できるようにする（2026-08-20〜、要望対応）。"""
+        self.btn_reading_mode.setEnabled(self.group_mode == "folder" or self.active_album_id is not None)
+
     def open_reading_mode(self):
-        """読書モード（見開き表示）を開始する。現在選択中の画像と同じフォルダ内の画像を、
-        名前順に並べて全画面の見開き表示にする。「フォルダ別グループ表示」が有効な時のみ利用できる
-        （ボタン自体もその条件でのみ有効化される）。"""
-        if self.group_mode != "folder" or self.current_image_id is None:
+        """読書モード（見開き表示）を開始する。
+        アルバム表示中でアルバム内の画像を選択している場合は、そのアルバムに所属する画像を
+        名前順に並べて見開き表示する（2026-08-20〜）。それ以外（フォルダ別グループ表示が
+        有効な通常モード）では、従来どおり選択中の画像と同じ実フォルダ内の画像を対象にする。
+        いずれの条件も満たさない場合は何もしない（ボタン自体もその条件でのみ有効化される）。"""
+        if self.current_image_id is None:
             return
-        
+        if self.active_album_id is None and self.group_mode != "folder":
+            return
+
         conn = sqlite3.connect(database.get_current_db_path())
         cursor = conn.cursor()
-        cursor.execute("SELECT file_path FROM images WHERE id = ?", (self.current_image_id,))
-        row = cursor.fetchone()
-        if not row:
+
+        if self.active_album_id is not None:
+            member_ids = database.get_album_image_ids(self.active_album_id)
+            if not member_ids:
+                conn.close()
+                return
+            placeholders = ",".join("?" for _ in member_ids)
+            cursor.execute(
+                f"SELECT id, file_path FROM images WHERE id IN ({placeholders}) "
+                "ORDER BY file_name COLLATE NOCASE ASC",
+                list(member_ids),
+            )
+            folder_rows = cursor.fetchall()
             conn.close()
-            return
-        current_path = row[0]
-        target_folder = os.path.dirname(current_path)
-        
-        cursor.execute("SELECT id, file_path FROM images ORDER BY file_name COLLATE NOCASE ASC")
-        all_rows = cursor.fetchall()
-        conn.close()
-        
-        folder_rows = [(img_id, path) for img_id, path in all_rows if os.path.dirname(path) == target_folder]
+        else:
+            cursor.execute("SELECT file_path FROM images WHERE id = ?", (self.current_image_id,))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                return
+            current_path = row[0]
+            target_folder = os.path.dirname(current_path)
+
+            cursor.execute("SELECT id, file_path FROM images ORDER BY file_name COLLATE NOCASE ASC")
+            all_rows = cursor.fetchall()
+            conn.close()
+
+            folder_rows = [(img_id, path) for img_id, path in all_rows if os.path.dirname(path) == target_folder]
+
         if not folder_rows:
             return
-        
+
         start_index = next((i for i, (img_id, _) in enumerate(folder_rows) if img_id == self.current_image_id), 0)
-        
+
         self.reading_mode_window = ReadingModeWindow(self, folder_rows, start_index)
 
     def enter_fullscreen_preview(self):
@@ -5711,14 +7249,30 @@ class AIImageViewerApp(QMainWindow):
         
         self.set_preview_size_mode(self.preview_size_mode)
 
+    def _current_image_row(self):
+        """現在プレビュー中の画像（self.current_image_id）が、self.image_list内で
+        実際に何行目にあるかを返す。見つからなければ-1を返す。
+        以前はself.image_list.currentRow()を基準にしていたが、フォルダを折りたたんで
+        現在表示中の画像の行が非表示になった直後は、Qt側のcurrentRow()が意図した行を
+        正しく指さないことがあり、画像送り（前へ/次へ）が反応しなくなる不具合があった。
+        self.current_image_id（画像id基準）から都度探す方式にすることで、行の表示/非表示に
+        依存せず安定して現在位置を特定できるようにした（2026-08-20〜、要望対応）。"""
+        if self.current_image_id is None:
+            return -1
+        for i in range(self.image_list.count()):
+            item = self.image_list.item(i)
+            if item.data(Qt.UserRole) == self.current_image_id:
+                return i
+        return -1
+
     def prev_image(self):
         """前の画像へ移動する。非表示（検索で絞り込まれた／フォルダが折りたたまれた）行や
         見出し行はスキップする。ループ回数をリスト件数で打ち切ることで、
-        選択中の行が存在しない（currentRow()が-1）場合でも無限ループにならないようにしている。"""
+        選択中の行が存在しない場合でも無限ループにならないようにしている。"""
         count = self.image_list.count()
         if count == 0:
             return
-        current_row = self.image_list.currentRow()
+        current_row = self._current_image_row()
         row = current_row - 1 if current_row >= 0 else count - 1
         for _ in range(count):
             if row < 0:
@@ -5735,7 +7289,7 @@ class AIImageViewerApp(QMainWindow):
         count = self.image_list.count()
         if count == 0:
             return
-        current_row = self.image_list.currentRow()
+        current_row = self._current_image_row()
         row = current_row + 1 if current_row >= 0 else 0
         for _ in range(count):
             if row >= count:

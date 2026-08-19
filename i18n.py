@@ -30,10 +30,11 @@ HELP_TEXT_JA = """Seed Book - ヘルプ
 【目次】
 1. アプリのUI名称と役割
 2. 基本的な使い方（取り込み・編集・検索・並び替え）
-3. 設定画面
-4. フォルダ画像の同期ルール
-5. データのバックアップ・移行
-6. 既知の制限事項
+3. アルバム（仮想フォルダ）機能
+4. 設定画面
+5. フォルダ画像の同期ルール
+6. データのバックアップ・移行
+7. 既知の制限事項
 
 【1. アプリのUI名称と役割】
 ・画面左側が「リスト表示エリア」、右側が「編集エリア」です
@@ -58,21 +59,31 @@ HELP_TEXT_JA = """Seed Book - ヘルプ
 ・グリッド表示ではサムネイルサイズ（小/中/大）を選べます
 ・「フォルダ別グループ表示」ボタンで、フォルダごとに画像をまとめて表示できます
 
-【3. 設定画面】
+【3. アルバム（仮想フォルダ）機能】
+・実フォルダとは別に、画像を横断的にまとめられる「アルバム」を作成できます（1枚の画像を複数のアルバムに所属させることも可能です）
+・画面左側のフォルダ/アルバム切り替えボタンで表示を切り替えます（画像リストとアルバム表示は同時には使えません）
+・画像の右クリックメニュー「アルバムに追加」、またはアルバム見出しへ画像をドラッグ&ドロップして追加できます
+・アルバムの見出しを右クリックすると、並び順の編集・名前の変更・すべて開く/折りたたむ・一括書き出し（連番リネーム）・アルバム専用の自動採番設定・削除ができます
+・アルバム専用の自動採番ルールは、そのアルバムの一括書き出し時のみに使われます（画像の取り込み時の採番には影響しません）
+・アルバムやアルバム内の画像は、Finder等へドラッグ&ドロップして書き出せます（アルバムは実フォルダを持たないため、書き出し時に一時フォルダへコピーしてから渡します）。この方法では元のファイル名のまま渡され、採番ルールは適用されません。採番ルールを適用したい場合は、見出しの右クリックメニューにある「一括で書き出す（連番でリネーム）」をご利用ください
+・アルバム表示中も、検索欄で開いているアルバム内の画像を絞り込めます
+
+【4. 設定画面】
 ・画面右上の歯車アイコンから開きます
 ・自動採番のルール、表示項目、外観モード（ダーク/ライト）、フォルダ取り込み時の順序、読書モードの既定設定、データベースの管理などを行えます
 ・詳しい各項目の説明はマニュアルをご覧ください
 
-【4. フォルダ画像の同期ルール】
+【5. フォルダ画像の同期ルール】
 ・リストから削除した画像は、再度「同期」しても自動では復活しません
 ・復活させたい場合は、「フォルダを取り込む」「画像ファイルを取り込む」で明示的に選び直してください
 
-【5. データのバックアップ・移行】
+【6. データのバックアップ・移行】
 ・データベースは `~/Library/Application Support/AIImageViewer/` に保存されています（画像ファイル自体はここには含まれません）
 ・アプリの削除・再インストール、別のMacへの移行時にも安全にデータを引き継げます。詳しい手順はマニュアルをご覧ください
 
-【6. 既知の制限事項】
+【7. 既知の制限事項】
 ・ドラッグ&ドロップでの取り込みは一時的に無効化中です
+・フォルダ別グループ表示で、表示中の画像を含むフォルダを折りたたんだ後、画像送り（前へ/次へ）が反応しないことがあります
 """
 
 HELP_TEXT_EN = """Seed Book - Help
@@ -83,10 +94,11 @@ It uses the same chapter structure as the manual, so if you want more detail on 
 [Table of Contents]
 1. UI Names and Roles
 2. Basic Usage (Import / Edit / Search / Sort)
-3. Settings
-4. Folder Image Sync Rules
-5. Data Backup / Migration
-6. Known Limitations
+3. Albums (Virtual Folders)
+4. Settings
+5. Folder Image Sync Rules
+6. Data Backup / Migration
+7. Known Limitations
 
 [1. UI Names and Roles]
 - The left side of the screen is the "List Area", and the right side is the "Edit Area"
@@ -111,21 +123,31 @@ It uses the same chapter structure as the manual, so if you want more detail on 
 - In grid view, you can choose the thumbnail size (small/medium/large)
 - Use the "Group by Folder" button to display images grouped by folder
 
-[3. Settings]
+[3. Albums (Virtual Folders)]
+- You can create "albums" that group images across different real folders (a single image can belong to multiple albums)
+- Use the Folder/Album toggle on the left side to switch views (the image list and album view can't be used at the same time)
+- Add images via the right-click menu "Add to Album", or by dragging images onto an album header
+- Right-clicking an album header lets you: reorder albums, rename, expand/collapse all, bulk-export with sequential renaming, set an album-specific auto-numbering rule, or delete the album
+- An album's auto-numbering rule only applies to that album's bulk export (it does not affect numbering at import time)
+- Albums and images inside an expanded album can be dragged out to Finder etc. Since albums have no real folder, the images are copied to a temporary folder at export time. This method keeps the original filenames as-is and does not apply the naming rule; use "Export Album Images as Renamed Copies (Sequential)..." from the header's right-click menu if you want the naming rule applied
+- While viewing albums, the search box still filters images within the currently open album(s)
+
+[4. Settings]
 - Open it from the gear icon in the top-right corner
 - Manage auto-numbering rules, display fields, appearance mode (dark/light), folder import order, reading mode defaults, database management, and more
 - See the manual for detailed descriptions of each option
 
-[4. Folder Image Sync Rules]
+[5. Folder Image Sync Rules]
 - Images removed from the list do not automatically come back even if you "Sync" again
 - To bring them back, explicitly re-select them via "Import Folder" or "Import Images"
 
-[5. Data Backup / Migration]
+[6. Data Backup / Migration]
 - The database is stored at `~/Library/Application Support/AIImageViewer/` (this does not include the image files themselves)
 - Your data can be safely carried over when uninstalling/reinstalling the app or moving to another Mac. See the manual for detailed steps
 
-[6. Known Limitations]
+[7. Known Limitations]
 - Drag-and-drop import is temporarily disabled
+- In folder-grouped view, after collapsing a folder that contains the currently displayed image, prev/next image navigation may stop responding correctly
 """
 
 STRINGS = {
@@ -190,6 +212,7 @@ STRINGS = {
         "dialog.rename_table.title_bulk": "一括リネームする名前を確認・編集",
         "dialog.rename_table.locked_skip_note": "（編集ロック中の {count} 件は対象外です）",
         "dialog.rename_table.locked_skip_note_newline": "\n（編集ロック中の {count} 件は対象外です）",
+        "dialog.rename_table.naming_rule_note": "命名ルール（プレフィックス・桁数など）のカスタマイズは、設定画面（歯車アイコン）の「自動採番・リネーム」、またはフォルダ/アルバムの見出しを右クリック→「命名ルール」から行えます。",
 
         "reading.title": "読書モード",
         "reading.tooltip.theme_toggle": "読書モードの背景（ダーク/ライト）を切り替え",
@@ -260,6 +283,15 @@ STRINGS = {
         "dialog.folder_order.intro": "ドラッグ&ドロップで、フォルダ別グループ表示での並び順を変更できます。",
         "dialog.folder_order.save_button": "この順序で保存",
 
+        "dialog.album_naming_rule.title": "アルバム専用の自動採番 - {album_name}",
+        "dialog.album_naming_rule.hint": "アルバム「{album_name}」専用の自動採番ルールです。このアルバムの画像を一括で書き出す際に、このルールが優先して使われます（アルバムは取り込み元にはならないため、新規取り込みには使われません）。",
+        "dialog.album_naming_rule.override_checkbox": "このアルバムの専用ルールとして設定する",
+        "dialog.album_naming_rule.placeholder_hint": "{アルバム名}・{日付} が使えます",
+        "dialog.album_naming_rule.preview_prefix": "このアルバムを一括で書き出す際の例: ",
+        "dialog.album_order.title": "アルバムの並び順を編集",
+        "dialog.album_order.intro": "ドラッグ&ドロップで、アルバム一覧での並び順を変更できます。",
+        "dialog.album_order.save_button": "この順序で保存",
+
         "settings.title": "設定",
         "settings.button.release_notes": " リリースノート 🐈",
         "settings.tooltip.release_notes": "GitHubの更新履歴ページをブラウザで開きます",
@@ -301,7 +333,7 @@ STRINGS = {
         "settings.reset.tooltip": "設定を初期値（既定）に戻します（画像データは変更されません）",
         "settings.reset.done_body": "設定を初期値に戻しました。設定画面を開き直すと反映されます。",
         "settings.reset.confirm.title": "設定をリセット",
-        "settings.reset.confirm.body": "【 リセットされる項目（カッコ内が既定）】\n　\n・自動採番を使用する（オン）\n・プレフィックス名とアペンド名（CG_ ／ 空欄）\n・外観モード（自動）\n・生成パラメータの表示項目（オフ）\n・フォルダ取り込み時の順序（毎回確認）\n・読書モード（左開き、中央詰め表示オフ）\n\n　\n\n【 リセットされない項目 】\n　\n・データベースの情報\n・保存（更新）済みの画像データの情報\n\n　\n\nこの操作は取り消せません。よろしいですか？",
+        "settings.reset.confirm.body": "【 リセットされる項目（カッコ内が既定）】\n　\n・自動採番を使用する（オン）\n・プレフィックス名とアペンド名（CG_ ／ 空欄）\n・外観モード（自動）\n・生成パラメータの表示項目（オフ）\n・フォルダ取り込み時の順序（毎回確認）\n・読書モード（左開き、中央詰め表示オフ）\n・表示モード（フォルダ）、表示形式（リスト）、サムネイルサイズ（中）、プレビューサイズ（標準）\n・編集エリアの表示状態と並び順（すべて非表示、既定の並び順）\n\n　\n\n【 リセットされない項目 】\n　\n・データベースの情報\n・保存（更新）済みの画像データの情報\n\n　\n\nこの操作は取り消せません。よろしいですか？",
 
         "settings.database.title": "データベース",
         "settings.database.current_label": "現在使用中: {db_name}",
@@ -324,6 +356,8 @@ STRINGS = {
         "settings.database.reset_confirm.body": "【 リセットされる項目 】\n　\n　・選択中のデータベース内のデータ\n（画像 {images} 件・フォルダ {folders} 件など。PCの実際の画像データは削除されません）\n\n　\n\n【 リセットされない項目 】\n　\n　・更新や保存した画像ファイルやその情報\n　・アプリの設定\n　・自動採番を使用する\n　・プレフィックス名とアペンド名\n　・外観モード\n　・生成パラメータの表示項目\n　・フォルダ取り込み時の順序\n　・読書モード\n\n　\n\nこの操作は取り消せません。よろしいですか？",
         "settings.database.switch_confirm.title": "データベースの切り替え",
         "settings.database.switch_confirm.body": "「{db_name}」に切り替えるには、アプリの再起動が必要です。\n保存していない編集内容があれば失われます。\n\n切り替えて再起動しますか？",
+        "settings.language.switch_confirm.title": "表示言語の切り替え",
+        "settings.language.switch_confirm.body": "表示言語を「{lang}」に切り替えるには、アプリの再起動が必要です。\n保存していない編集内容があれば失われます。\n\n切り替えて再起動しますか？",
         "settings.database.create_confirm.title": "新しいデータベースの作成",
         "settings.database.create_confirm.body": "新しいデータベース「{db_name}」を作成します。\n\nよろしいですか？",
         "settings.database.create_done.title": "作成しました",
@@ -348,10 +382,12 @@ STRINGS = {
         "dialog.db_missing.sample_import_failed.title": "サンプル画像の追加に失敗しました",
 
         "main.tooltip.toggle_all_fields_hide": "すべての編集欄・取り込み形式欄をまとめて非表示にする",
+        "main.tooltip.toggle_all_fields_hide_all": "見出しも含めてすべて非表示にし、プレビューをさらに拡大する",
         "main.tooltip.toggle_all_fields_show": "すべての編集欄・取り込み形式欄をまとめて表示する",
         "main.tooltip.help": "ヘルプ（基本的な操作方法を表示します）",
         "main.tooltip.settings": "設定",
         "main.search.placeholder": "スペース区切りで複数検索可能（星は star1〜5）",
+        "main.search.hint_tooltip": "検索の書き方（OR検索・除外・期間指定など）をヘルプで見る",
         "main.button.import_folder": " フォルダを取り込む",
         "main.tooltip.import_folder": "フォルダを選択し、直下の画像をまとめて取り込みます（サブフォルダは対象外）\n対応形式: PNG / JPG / JPEG / WEBP / GIF / BMP / TIFF（選択可）",
         "main.button.import_files": " 画像を取り込む",
@@ -364,6 +400,7 @@ STRINGS = {
         "main.sort.by_imported": "並べ替え：取り込み日時順",
         "main.sort.by_rating": "並べ替え：評価順",
         "main.sort.by_filesize": "並べ替え：ファイルサイズ順",
+        "main.sort.by_filename": "並べ替え：ファイル名順",
         "main.tooltip.sort_direction_asc": "並び順を昇順/降順で切り替え（現在: 昇順）",
         "main.tooltip.sort_direction_desc": "並び順を昇順/降順で切り替え（現在: 降順）",
         "main.tooltip.view_toggle_to_grid": "グリッド表示に切替",
@@ -372,6 +409,8 @@ STRINGS = {
         "main.tooltip.group_toggle_disable": "グループ表示を解除",
         "main.tooltip.view_toggle_disabled_grouped": "フォルダ別グループ表示中はグリッド表示に切り替えられません",
         "main.tooltip.group_toggle_disabled_grid": "フォルダ別グループ表示はリスト表示でのみ利用できます",
+        "main.tooltip.view_toggle_disabled_album": "アルバム表示中はグリッド表示に切り替えられません",
+        "main.tooltip.group_toggle_disabled_album": "アルバム表示中はフォルダ別グループ表示を切り替えられません",
         "main.button.grid_small": " 小",
         "main.tooltip.grid_small": "サムネイルを小さいサイズで表示",
         "main.button.grid_medium": " 中",
@@ -381,6 +420,7 @@ STRINGS = {
         "main.label.empty_state": "画像を取り込んでください",
         "main.label.drag_hover": "画像またはフォルダをここにドラッグ&ドロップしてください",
         "main.label.no_search_results": "検索結果は 0 件です",
+        "main.album_header.note_collapsed_search": "（折りたたみ中は検索対象外）",
         "main.tooltip.import_formats_hide": "取り込み形式欄を非表示にする",
         "main.tooltip.import_formats_show": "取り込み形式欄を表示する",
         "main.label.gif_note": "※ GIF は1コマ目を静止画として表示",
@@ -392,6 +432,7 @@ STRINGS = {
         "main.tooltip.theme_toggle": "外観モードを切り替え（現在: {mode}）",
         "main.tooltip.panel_flip_mirrored": "パネル配置を反転（現在: 反転表示）",
         "main.tooltip.panel_flip_standard": "パネル配置を反転（現在: 標準表示）",
+        "main.tooltip.language_toggle": "表示言語を切り替え（現在: {lang}）",
 
         "metadata.filename.header": "ファイル名",
         "metadata.filename.tooltip": "パソコン上の実際のファイル名です。変更すると「変更を保存」時にファイル自体の名前が変わります。",
@@ -418,6 +459,9 @@ STRINGS = {
         "metadata.button.save_selected_ratings": " 選択した {count} 件の評価（★）を一括保存",
         "metadata.button.saved_confirmation": " 保存しました",
         "metadata.tooltip.save_locked": "この画像はロックされているため編集できません",
+        "metadata.tooltip.unsaved": "未保存の変更があります",
+        "metadata.tooltip.section_move_up": "この項目を1つ上へ移動",
+        "metadata.tooltip.section_move_down": "この項目を1つ下へ移動",
         "metadata.button.save_as_new": " 別名で保存",
         "metadata.tooltip.save_as_new": "オリジナルは変更せず、現在の内容（表示名・評価・プロンプト等）を持つ\n新しいコピーとして、指定した場所に保存します。",
         "metadata.button.slideshow_idle": "▶  スライドショー",
@@ -452,6 +496,37 @@ STRINGS = {
         "menu.folder_delete": "フォルダをデータベースから削除...",
         "menu.expand_all_folders": "すべてのフォルダを開く",
         "menu.collapse_all_folders": "すべてのフォルダを折りたたむ",
+        "menu.add_to_album": "アルバムに追加",
+        "menu.add_to_album_new": "新しいアルバムを作成...",
+        "menu.remove_from_album": "このアルバムから削除",
+        "browse_mode.button.images": "フォルダ",
+        "browse_mode.button.albums": "アルバム",
+        "browse_mode.tooltip.images": "通常の画像リスト表示に切り替える",
+        "browse_mode.tooltip.albums": "アルバム表示に切り替える",
+        "album.button.create": "アルバムを作成する",
+        "album.tooltip.add": "新しいアルバムを作成",
+        "album.tooltip.clear_filter": "アルバム一覧に戻る",
+        "album.dialog.create.title": "新しいアルバム",
+        "album.dialog.create.label": "アルバム名を入力してください",
+        "album.dialog.create.naming_hint": "このアルバムの画像を一括で書き出す際の自動採番ルールです（作成後も見出しの右クリックメニューから変更できます）。オフの場合はアプリ全体の既定ルールを使います。",
+        "album.dialog.create.confirm_button": "作成",
+        "album.dialog.create.name_empty_warning": "アルバム名を入力してください。",
+        "album.dialog.rename.title": "アルバム名の変更",
+        "album.dialog.rename.label": "新しいアルバム名を入力してください",
+        "album.menu.rename": "名前を変更",
+        "album.menu.delete": "アルバムを削除",
+        "album.confirm.delete.title": "アルバムの削除",
+        "album.confirm.delete.body": "アルバム「{name}」を削除しますか？\n（アルバム内の画像自体は削除されません）",
+        "album.notify.added": "{count} 件の画像を「{name}」に追加しました",
+        "album.notify.added_count": "{count} 件の画像をアルバムに追加しました",
+        "album.notify.removed_count": "{count} 件の画像をアルバムから外しました",
+        "album.notify.naming_rule_saved": "「{name}」専用の自動採番を保存しました",
+        "menu.album_edit_order": "アルバムの並び順を編集...",
+        "menu.album_copy_renamed": "アルバム内の画像を一括で書き出す（連番でリネーム）...",
+        "menu.album_naming_rule": "アルバム専用の自動採番を設定...",
+        "menu.album_delete": "アルバムを削除...",
+        "menu.expand_all_albums": "すべてのアルバムを開く",
+        "menu.collapse_all_albums": "すべてのアルバムを折りたたむ",
 
         "status.files_copied": "{count} 件のファイルをコピーしました（Cmd+V / Ctrl+V で貼り付け可能）",
         "status.file_path_copied": "ファイルパスをコピーしました",
@@ -465,8 +540,11 @@ STRINGS = {
         "status.changes_saved": "変更を保存しました",
         "main.library_status": "フォルダ：{folders}　画像：{images}　最新の同期：{last_sync}",
         "main.library_status.not_synced": "未同期",
-        "main.folder_header.tooltip_collapsed": "クリックして画像一覧を表示・ドラッグでフォルダごとコピー",
-        "main.folder_header.tooltip_expanded": "クリックして画像一覧を折りたたむ・ドラッグでフォルダごとコピー",
+        "main.library_status_album": "アルバム：{albums}　画像：{images}",
+        "main.folder_header.tooltip_collapsed": "クリックして画像一覧を表示・ドラッグでフォルダごとコピー（元のファイル名のまま。採番ルールを使うには右クリック「一括で書き出す」）",
+        "main.folder_header.tooltip_expanded": "クリックして画像一覧を折りたたむ・ドラッグでフォルダごとコピー（元のファイル名のまま。採番ルールを使うには右クリック「一括で書き出す」）",
+        "album.header.tooltip_collapsed": "クリックして画像一覧を表示・ドラッグでFinder等へ書き出し（元のファイル名のまま。採番ルールを使うには右クリック「一括で書き出す」）",
+        "album.header.tooltip_expanded": "クリックして画像一覧を折りたたむ・ドラッグでFinder等へ書き出し（元のファイル名のまま。採番ルールを使うには右クリック「一括で書き出す」）",
         "main.list_item.location_line": "場所: .../{parent_dir}/",
         "main.list_item.locked_note": "🔒 編集ロック中\n",
         "main.button.delete_selected_count": " {count} 件の画像をリストから削除",
@@ -512,6 +590,7 @@ STRINGS = {
         "notify.bulk_rename_all_locked": "選択した画像はすべて編集ロック中のため、リネームできません。",
         "notify.file_manager_open_failed": "ファイルマネージャーを開けませんでした:\n{error}",
         "notify.search_all_collapsed": "すべてのフォルダが折りたたまれています。\n折りたたみ中のフォルダは検索対象外です。検索したいフォルダを開いてください。",
+        "notify.search_all_albums_collapsed": "すべてのアルバムが折りたたまれています。\n折りたたみ中のアルバムは検索対象外です。検索したいアルバムを開いてください。",
         "notify.body.cancelled_with_summary": "キャンセルされたため処理を中断しました。\n\n{summary}",
         "sync.error_summary_suffix": "\n\n【発生したエラー内容】\n{error_log}",
         "notify.import_partial_errors_body": "処理完了しました。\n\n{summary}\n\n【発生したエラー内容】\n{error_log}",
@@ -586,6 +665,7 @@ STRINGS = {
         "dialog.rename_table.title_bulk": "Confirm/Edit Names to Bulk Rename",
         "dialog.rename_table.locked_skip_note": " ({count} locked item(s) excluded)",
         "dialog.rename_table.locked_skip_note_newline": "\n({count} locked item(s) excluded)",
+        "dialog.rename_table.naming_rule_note": "To customize the naming rule (prefix, digit count, etc.), use Settings (gear icon) → \"Auto-Numbering / Rename\", or right-click a folder/album header → \"Naming Rule\".",
 
         # --- Reading mode (spread view) ---
         "reading.title": "Reading Mode",
@@ -663,6 +743,15 @@ STRINGS = {
         "dialog.folder_order.intro": "Drag and drop to change the order of folders in folder-grouped display.",
         "dialog.folder_order.save_button": "Save This Order",
 
+        "dialog.album_naming_rule.title": "Album-Specific Auto-Numbering - {album_name}",
+        "dialog.album_naming_rule.hint": "An album-specific auto-numbering rule for \"{album_name}\". This rule takes priority when bulk-exporting images from this album (it is never used for new imports, since albums cannot be an import source).",
+        "dialog.album_naming_rule.override_checkbox": "Set a rule specific to this album",
+        "dialog.album_naming_rule.placeholder_hint": "{album name} and {date} are available",
+        "dialog.album_naming_rule.preview_prefix": "Example when bulk-exporting this album: ",
+        "dialog.album_order.title": "Edit Album Order",
+        "dialog.album_order.intro": "Drag and drop to change the order of albums in the album list.",
+        "dialog.album_order.save_button": "Save This Order",
+
         # --- Settings dialog: overall / appearance ---
         "settings.title": "Settings",
         "settings.button.release_notes": " Release Notes 🐈",
@@ -708,7 +797,7 @@ STRINGS = {
         "settings.reset.tooltip": "Resets settings to their defaults (image data is not affected)",
         "settings.reset.done_body": "Settings have been reset to their defaults. Reopen the Settings dialog to see the change.",
         "settings.reset.confirm.title": "Reset Settings",
-        "settings.reset.confirm.body": "[ Items that will be reset (defaults in parentheses) ]\n \n- Use auto-numbering (On)\n- Prefix and append names (CG_ / blank)\n- Appearance mode (Auto)\n- Generation parameter display fields (Off)\n- Folder import order (Ask every time)\n- Reading mode (Left-bound, center-align off)\n\n \n\n[ Items that will NOT be reset ]\n \n- Database information\n- Saved/updated image data information\n\n \n\nThis cannot be undone. Are you sure?",
+        "settings.reset.confirm.body": "[ Items that will be reset (defaults in parentheses) ]\n \n- Use auto-numbering (On)\n- Prefix and append names (CG_ / blank)\n- Appearance mode (Auto)\n- Generation parameter display fields (Off)\n- Folder import order (Ask every time)\n- Reading mode (Left-bound, center-align off)\n- Browse mode (Folders), view mode (List), grid tile size (Medium), preview size (Standard)\n- Edit area display state and section order (all hidden, default order)\n\n \n\n[ Items that will NOT be reset ]\n \n- Database information\n- Saved/updated image data information\n\n \n\nThis cannot be undone. Are you sure?",
 
         # --- Settings dialog: database ---
         "settings.database.title": "Database",
@@ -732,6 +821,8 @@ STRINGS = {
         "settings.database.reset_confirm.body": "[ Items that will be reset ]\n \n- Data in the currently selected database\n({images} image(s), {folders} folder(s), etc. Actual image files on your PC will not be deleted)\n\n \n\n[ Items that will NOT be reset ]\n \n- Updated/saved image files and their information\n- App settings\n- Whether auto-numbering is used\n- Prefix and append names\n- Appearance mode\n- Generation parameter display fields\n- Folder import order\n- Reading mode\n\n \n\nThis cannot be undone. Are you sure?",
         "settings.database.switch_confirm.title": "Switch Database",
         "settings.database.switch_confirm.body": "Switching to \"{db_name}\" requires restarting the app.\nAny unsaved edits will be lost.\n\nSwitch and restart?",
+        "settings.language.switch_confirm.title": "Switch Display Language",
+        "settings.language.switch_confirm.body": "Switching the display language to \"{lang}\" requires restarting the app.\nAny unsaved edits will be lost.\n\nSwitch and restart?",
         "settings.database.create_confirm.title": "Create New Database",
         "settings.database.create_confirm.body": "This will create a new database named \"{db_name}\".\n\nAre you sure?",
         "settings.database.create_done.title": "Created",
@@ -758,10 +849,12 @@ STRINGS = {
 
         # --- Main window: top bar ---
         "main.tooltip.toggle_all_fields_hide": "Hide all edit fields and import format fields at once",
+        "main.tooltip.toggle_all_fields_hide_all": "Hide the section headers too, and enlarge the preview further",
         "main.tooltip.toggle_all_fields_show": "Show all edit fields and import format fields at once",
         "main.tooltip.help": "Help (shows basic instructions)",
         "main.tooltip.settings": "Settings",
         "main.search.placeholder": "Space-separated for multiple terms (stars: star1-5)",
+        "main.search.hint_tooltip": "See Help for search syntax (OR search, exclusion, date ranges, etc.)",
         "main.button.import_folder": " Import Folder",
         "main.tooltip.import_folder": "Select a folder and import all the images directly inside it (subfolders are not included)\nSupported formats: PNG / JPG / JPEG / WEBP / GIF / BMP / TIFF (selectable)",
         "main.button.import_files": " Import Images",
@@ -774,6 +867,7 @@ STRINGS = {
         "main.sort.by_imported": "Sort: By Import Date",
         "main.sort.by_rating": "Sort: By Rating",
         "main.sort.by_filesize": "Sort: By File Size",
+        "main.sort.by_filename": "Sort: By Filename",
         "main.tooltip.sort_direction_asc": "Toggle ascending/descending order (currently: ascending)",
         "main.tooltip.sort_direction_desc": "Toggle ascending/descending order (currently: descending)",
         "main.tooltip.view_toggle_to_grid": "Switch to grid view",
@@ -782,6 +876,8 @@ STRINGS = {
         "main.tooltip.group_toggle_disable": "Turn off grouped display",
         "main.tooltip.view_toggle_disabled_grouped": "Cannot switch to grid view while folder-grouped display is active",
         "main.tooltip.group_toggle_disabled_grid": "Folder-grouped display is only available in list view",
+        "main.tooltip.view_toggle_disabled_album": "Cannot switch to grid view while album display is active",
+        "main.tooltip.group_toggle_disabled_album": "Folder-grouped display cannot be toggled while album display is active",
         "main.button.grid_small": " Small",
         "main.tooltip.grid_small": "Show thumbnails at a small size",
         "main.button.grid_medium": " Medium",
@@ -791,6 +887,7 @@ STRINGS = {
         "main.label.empty_state": "Please import some images",
         "main.label.drag_hover": "Drag and drop images or a folder here",
         "main.label.no_search_results": "No search results",
+        "main.album_header.note_collapsed_search": "(Collapsed albums are excluded from search)",
         "main.tooltip.import_formats_hide": "Hide import format fields",
         "main.tooltip.import_formats_show": "Show import format fields",
         "main.label.gif_note": "* For GIFs, the first frame is shown as a still image",
@@ -802,6 +899,7 @@ STRINGS = {
         "main.tooltip.theme_toggle": "Toggle appearance mode (currently: {mode})",
         "main.tooltip.panel_flip_mirrored": "Flip panel layout (currently: mirrored)",
         "main.tooltip.panel_flip_standard": "Flip panel layout (currently: standard)",
+        "main.tooltip.language_toggle": "Switch display language (currently: {lang})",
 
         # --- Metadata edit area ---
         "metadata.filename.header": "Filename",
@@ -829,6 +927,9 @@ STRINGS = {
         "metadata.button.save_selected_ratings": " Save Ratings (★) for {count} Selected",
         "metadata.button.saved_confirmation": " Saved",
         "metadata.tooltip.save_locked": "This image is locked and cannot be edited",
+        "metadata.tooltip.unsaved": "You have unsaved changes",
+        "metadata.tooltip.section_move_up": "Move this section up",
+        "metadata.tooltip.section_move_down": "Move this section down",
         "metadata.button.save_as_new": " Save As New",
         "metadata.tooltip.save_as_new": "Saves a new copy at the location you choose, without changing the original,\nwith the current content (display name, rating, prompt, etc.).",
         "metadata.button.slideshow_idle": "▶  Slideshow",
@@ -864,6 +965,37 @@ STRINGS = {
         "menu.folder_delete": "Remove Folder From Database...",
         "menu.expand_all_folders": "Expand All Folders",
         "menu.collapse_all_folders": "Collapse All Folders",
+        "menu.add_to_album": "Add to Album",
+        "menu.add_to_album_new": "Create New Album...",
+        "menu.remove_from_album": "Remove from This Album",
+        "browse_mode.button.images": "Folders",
+        "browse_mode.button.albums": "Albums",
+        "browse_mode.tooltip.images": "Switch to the normal image list view",
+        "browse_mode.tooltip.albums": "Switch to album view",
+        "album.button.create": "Create an Album",
+        "album.tooltip.add": "Create a new album",
+        "album.tooltip.clear_filter": "Back to album list",
+        "album.dialog.create.title": "New Album",
+        "album.dialog.create.label": "Enter an album name",
+        "album.dialog.create.naming_hint": "Auto-numbering rule used when bulk-exporting images from this album (can be changed later from the header's right-click menu). When off, the app-wide default rule is used.",
+        "album.dialog.create.confirm_button": "Create",
+        "album.dialog.create.name_empty_warning": "Please enter an album name.",
+        "album.dialog.rename.title": "Rename Album",
+        "album.dialog.rename.label": "Enter a new album name",
+        "album.menu.rename": "Rename",
+        "album.menu.delete": "Delete Album",
+        "album.confirm.delete.title": "Delete Album",
+        "album.confirm.delete.body": "Delete album \"{name}\"?\n(The images themselves will not be deleted.)",
+        "album.notify.added": "Added {count} image(s) to \"{name}\"",
+        "album.notify.added_count": "Added {count} image(s) to the album",
+        "album.notify.removed_count": "Removed {count} image(s) from the album",
+        "album.notify.naming_rule_saved": "Saved auto-numbering rule specific to \"{name}\"",
+        "menu.album_edit_order": "Edit Album Order...",
+        "menu.album_copy_renamed": "Export Album Images as Renamed Copies (Sequential)...",
+        "menu.album_naming_rule": "Set Album-Specific Auto-Numbering...",
+        "menu.album_delete": "Delete Album...",
+        "menu.expand_all_albums": "Expand All Albums",
+        "menu.collapse_all_albums": "Collapse All Albums",
 
         # --- Status bar transient messages ---
         "status.files_copied": "Copied {count} file(s) (paste with Cmd+V / Ctrl+V)",
@@ -878,8 +1010,11 @@ STRINGS = {
         "status.changes_saved": "Changes saved",
         "main.library_status": "Folders: {folders}   Images: {images}   Last synced: {last_sync}",
         "main.library_status.not_synced": "Not synced yet",
-        "main.folder_header.tooltip_collapsed": "Click to show images · Drag to copy the whole folder",
-        "main.folder_header.tooltip_expanded": "Click to collapse images · Drag to copy the whole folder",
+        "main.library_status_album": "Albums: {albums}   Images: {images}",
+        "main.folder_header.tooltip_collapsed": "Click to show images · Drag to copy the whole folder (original filenames are kept as-is; right-click \"Export as Renamed Copies\" to apply the naming rule)",
+        "main.folder_header.tooltip_expanded": "Click to collapse images · Drag to copy the whole folder (original filenames are kept as-is; right-click \"Export as Renamed Copies\" to apply the naming rule)",
+        "album.header.tooltip_collapsed": "Click to show images · Drag to export to Finder etc. (original filenames are kept as-is; right-click \"Export as Renamed Copies\" to apply the naming rule)",
+        "album.header.tooltip_expanded": "Click to collapse images · Drag to export to Finder etc. (original filenames are kept as-is; right-click \"Export as Renamed Copies\" to apply the naming rule)",
         "main.list_item.location_line": "Location: .../{parent_dir}/",
         "main.list_item.locked_note": "🔒 Locked for editing\n",
         "main.button.delete_selected_count": " Remove {count} Image(s) From List",
@@ -927,6 +1062,7 @@ STRINGS = {
         "notify.bulk_rename_all_locked": "All selected images are locked for editing, so they cannot be renamed.",
         "notify.file_manager_open_failed": "Could not open the file manager:\n{error}",
         "notify.search_all_collapsed": "All folders are collapsed.\nCollapsed folders are excluded from search. Please expand the folders you want to search.",
+        "notify.search_all_albums_collapsed": "All albums are collapsed.\nCollapsed albums are excluded from search. Please expand the albums you want to search.",
         "notify.body.cancelled_with_summary": "The process was interrupted because it was cancelled.\n\n{summary}",
         "sync.error_summary_suffix": "\n\n[Errors Encountered]\n{error_log}",
         "notify.import_partial_errors_body": "Processing complete.\n\n{summary}\n\n[Errors Encountered]\n{error_log}",

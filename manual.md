@@ -5,16 +5,17 @@
 ## Table of Contents
 1. [UI Names and Roles](#1-ui-names-and-roles)
 2. [Basic Usage](#2-basic-usage)
-3. [Settings Screen](#3-settings-screen)
-4. [Folder Image Sync Rules](#4-folder-image-sync-rules)
-5. [Data Backup and Migration](#5-data-backup-and-migration)
-6. [Known Limitations](#6-known-limitations)
+3. [Albums (Virtual Folders)](#3-albums-virtual-folders)
+4. [Settings Screen](#4-settings-screen)
+5. [Folder Image Sync Rules](#5-folder-image-sync-rules)
+6. [Data Backup and Migration](#6-data-backup-and-migration)
+7. [Known Limitations](#7-known-limitations)
 
 ---
 
 ## 1. UI Names and Roles
 
-<img width="1311" height="1071" alt="UI1" src="https://github.com/user-attachments/assets/1586c6ca-c4aa-4d75-b679-9a3bf2cb1b16" />
+<img width="1311" height="1071" alt="UI1" src="./design/screenshots/ui_main_light.png" />
 
 
 This app consists of two panes — the "List Display Area" on the left and the "Edit Area" on the right — plus a "Settings" screen.
@@ -27,8 +28,10 @@ This app consists of two panes — the "List Display Area" on the left and the "
   * **Import Folder:** Imports all images inside a specified folder at once.
   * **Import Images:** Imports specified individual image files.
   * **Sync button (🔄 icon):** Syncs with the current state of the folder.
+* **Folder/Album toggle row:**
+  * **Folder / Album toggle button:** Switches between the normal image list view and album view (see [3. Albums (Virtual Folders)](#3-albums-virtual-folders)). While in album view, a "Create an Album" button is also shown.
 * **Sort / Display toggle row:**
-  * **Sort / Ascending-Descending toggle:** Changes the display order of the image list.
+  * **Sort / Ascending-Descending toggle:** Changes the display order of the image list. "By Filename" (based on the actual file name) and "By Name" (based on the app's own "Name" field) are separate, distinct options.
   * **List/Grid display toggle button:** Switches between list view and grid (thumbnail) view.
   * **Group by folder toggle button:** Switches to grouping images by folder.
 * **Grid size selection row** (shown only while in grid view):
@@ -62,7 +65,7 @@ This app consists of two panes — the "List Display Area" on the left and the "
 
 * **Import Folder:** When you select a folder, the images directly inside it are imported together (subfolder contents are not included). At import time, you can choose the import order from filename order, reverse filename order, creation date order, or modification date order (each ascending or descending). A "Also import images with identical content" checkbox (off by default) at the bottom of the same screen lets you choose whether to deliberately import images whose content is exactly identical (even if the filenames differ) as separate records. This confirmation screen itself can be switched, from the settings screen, between "Ask every time" and "Automatically use the same settings as last time."
 * **Import Images:** Imports individually selected images from a file selection dialog. Useful when you want to import only some images rather than an entire folder.
-* **Sync (🔄):** Rescans previously imported folders and imports any newly added images. For detailed sync rules, see "[4. Folder Image Sync Rules](#4-folder-image-sync-rules)."
+* **Sync (🔄):** Rescans previously imported folders and imports any newly added images. For detailed sync rules, see "[5. Folder Image Sync Rules](#5-folder-image-sync-rules)."
 
 **About importing images with identical content:** Images imported with "Also import images with identical content" turned on are registered as separate, independent images. They will look the same (thumbnail/preview), but their rating, name, and prompt edits are managed individually — changing one will not affect the other.
 
@@ -122,7 +125,7 @@ In addition, the six items Steps, Sampler, Scheduler, CFG scale, Seed, and Size 
 * **Batch rename:** Selecting multiple images and right-clicking shows "Batch rename selected images (sequential)...". This uses the auto-numbering rule (prefix, digit count, suffix) from the settings screen as-is, and aligns only the **"Name" field in the database** to a sequential numbering. **The actual file name on your computer is not changed** (if you also want to align the actual file name, use "Batch export" instead). For images in a folder that has folder-specific auto-numbering set, that folder's rule takes priority. Numbers are assigned starting from 1 using a temporary counter dedicated to this operation, and do not affect the auto-numbering counter used at import time. If the prefix or suffix includes `{folder name}`, numbering starts from 1 separately for each folder. Images with edit lock enabled are excluded. Before execution, a confirmation popup is shown with example resulting names.
 * **Batch export (sequential rename):** Right-clicking an image (multiple selection supported) shows "Batch export selected images (sequential rename)...". Choosing a destination folder creates copies whose **actual file names** are renamed sequentially according to the auto-numbering rule (including extension), leaving the original files untouched. This uses the same temporary counter and `{folder name}` support as batch rename, so the behavior is conceptually the same. The wording "export" rather than "copy" is used to distinguish this from dragging and dropping onto Finder (which duplicates files under their original names).
 * When "Show edit screen when renaming" is on, the confirmation/edit screen shows "Current Name" / "New Name" for batch rename, and "Current File Name" / "New File Name" for batch export, making it clear which target (the database "Name" or the actual file name) is being changed in each case.
-* **Delete:** Clicking "Remove selected images from list" excludes the images from the app's list. The actual image files on your computer are not deleted. Deleted images do not automatically reappear even after a subsequent "Sync" (for details, see "[4. Folder Image Sync Rules](#4-folder-image-sync-rules)").
+* **Delete:** Clicking "Remove selected images from list" excludes the images from the app's list. The actual image files on your computer are not deleted. Deleted images do not automatically reappear even after a subsequent "Sync" (for details, see "[5. Folder Image Sync Rules](#5-folder-image-sync-rules)").
 
 ### 2.6 Slideshow
 
@@ -132,7 +135,7 @@ The "Slideshow" button starts automatic playback. Playback speed can be adjusted
 
 A mode that displays two images from the same folder as the selected image side by side, full-screen, like an open book. It is launched from a dedicated button next to the "Full Screen" button in the preview area.
 
-* **Requirements:** Available only while "Group by folder" display is enabled (the button is grayed out when disabled).
+* **Requirements:** Available while "Group by folder" display is enabled, or while viewing images inside an album in album view (the button is grayed out otherwise).
 * **Order:** Regardless of the app's current sort setting, images are always displayed in "name order."
 * **Reading direction:** You can switch between "Left-bound (read left to right)" and "Right-bound (read right to left)." Changes made via the toggle button while in spread view apply only for that session; change the default from the settings screen.
 * **Page navigation:** Supported via the slider bar at the bottom of the screen (moves by spread), jump buttons to the first/last spread, the left/right arrow keys, and clicking the left/right edges of the screen (about 15% of the width). The direction that the arrow keys or edge clicks advance/go back follows the current "reading direction," not the physical left/right of the screen (in right-bound mode, the → key goes back and the ← key advances).
@@ -143,11 +146,66 @@ A mode that displays two images from the same folder as the selected image side 
 
 ---
 
-## 3. Settings Screen
+## 3. Albums (Virtual Folders)
+
+### 3.1 What Albums Are
+
+A feature (added in v1.4) that lets you freely group images into virtual "Albums," independent of your actual folder structure on disk. A single image can belong to multiple albums at once. The normal image list view and album view are mutually exclusive — use the toggle button at the top of the list (folder icon / album icon) to switch between them.
+
+### 3.2 Creating an Album
+
+Clicking "Create an Album" opens a dialog that combines the album name field with a setting for that album's own auto-numbering rule.
+
+* Enter an album name (defaults to "Seed Book {next number}," but can be changed freely).
+* Checking "Set a rule specific to this album" lets you configure an auto-numbering rule (prefix, digit count, append text) used only by this album, right on the spot. It's off by default, in which case the app-wide default rule (from the "Auto-Numbering / Renaming" section in Settings) is used.
+* The prefix/append fields support the `{album name}` and `{date}` (today's date, YYYYMMDD) placeholders.
+* The rule can always be changed later from the header's right-click menu ("Album-Specific Auto-Numbering").
+
+### 3.3 Adding Images to an Album
+
+* **Via the right-click menu:** Right-click an image (in the normal list or inside an album) and choose "Add to Album" to pick an existing album, or "Create New Album..." to create one on the spot while adding. If you enable the auto-numbering rule in the creation dialog, it will be applied immediately even if you're only adding a single image.
+* **Via drag-and-drop:** You can also drag images directly onto an album's header row in the sidebar to add them.
+* Both methods work the same way with multiple images selected at once.
+
+### 3.4 Working with an Album's Header Row
+
+Album view behaves the same way as the image list's "Group by folder" display.
+
+* Click a header row to expand or collapse that album's images (shown via ▼/▶).
+* Right-click a header row (or click the faint "⋯" icon at its right edge) to open its menu:
+  * **Edit Order:** Reorder albums via drag-and-drop.
+  * **Rename:** Change the album's name.
+  * **Expand All / Collapse All:** Expand or collapse every currently shown album at once.
+  * **Export Album Images as Renamed Copies (Sequential):** Copies the album's images to a folder you choose, renaming them sequentially according to the numbering rule.
+  * **Album-Specific Auto-Numbering:** Set, change, or clear this album's own numbering rule (see [3.2](#32-creating-an-album)).
+  * **Delete Album:** Deletes the album itself (the images inside it are not deleted — only the "container" is removed).
+
+### 3.5 Where the Album-Specific Rule Applies
+
+Once set, an album's own auto-numbering rule takes priority in:
+
+* "Export Album Images as Renamed Copies (Sequential)" from the header menu
+* "Bulk Rename Selected" and "Export Selected as Renamed Copies (Sequential)" when selecting images inside that album (this works even with a single image selected)
+
+It is fully independent of folder-specific rules and the app-wide default rule — the two are never both applied to the same operation. Since an album can never be an import source, it has no effect on numbering during import.
+
+### 3.6 Exporting to Finder and How Filenames Are Handled
+
+You can also drag an album, or images inside an expanded album, directly onto Finder (Explorer) to export them. Since an album has no real folder on disk, it is materialized into a temporary folder at drag time and handed to Finder as a regular folder.
+
+With this method, **the original filenames are preserved as-is and no numbering rule is applied.** If you want a numbered copy, use "Export Album Images as Renamed Copies (Sequential)" described in [3.4](#34-working-with-an-albums-header-row) instead.
+
+### 3.7 Works with Search and Sorting
+
+While in album view, the search box filters images within whichever album is currently open (as with the normal image list, "No results found" or "Collapsed albums are excluded from search" is shown below the header as appropriate). Sort type and ascending/descending order also carry over to album view.
+
+---
+
+## 4. Settings Screen
 
 Opened from the gear icon at the top right of the screen.
 
-<img width="296" height="537" alt="UI4" src="https://github.com/user-attachments/assets/98ea97fb-de05-434d-ab7c-f3796c297be4" />
+<img width="296" height="537" alt="UI4" src="./design/screenshots/ui_settings_dark.png" />
 
 
 
@@ -162,21 +220,21 @@ Opened from the gear icon at the top right of the screen.
   * **View/switch the currently active database:** Select from the list and click "Switch Database" to have the app automatically restart and switch. Clicking the folder icon to the right of the display opens the folder where database files are stored, in Finder (Explorer on Windows).
   * **Create Database:** You can create multiple databases for different purposes, inside the app's data storage folder (`~/Library/Application Support/AIImageViewer/`) (`image_metadata.db`, `image_metadata2.db`, ...). After confirmation, a new empty database is created (creating one does not switch to it automatically — select it from the list again to switch).
   * **Image list (CSV):** Exports a list of images registered in the currently active database to a CSV file. You can choose "basic info only" or "include prompt and other metadata."
-  * **Sync history (CSV):** Exports the history of folders/images not found, or import errors, recorded during "Sync" operations, to a CSV file. For details, see "[4.6 Sync History](#46-sync-history)."
+  * **Sync history (CSV):** Exports the history of folders/images not found, or import errors, recorded during "Sync" operations, to a CSV file. For details, see "[5.6 Sync History](#56-sync-history)."
   * **Reset Database:** Deletes all image and remembered folder information from the currently active database. The actual image files on your computer, and other app settings, are preserved.
-  * **When no database is found:** If, at app launch, no database file is found at the default storage location (`~/Library/Application Support/AIImageViewer/`) — such as on first launch, or if the file was deleted directly — the app does not automatically create a new one; instead a selection popup is shown. You can choose from "Create a new empty database" (selected by default; if this is your first time using the app, you can simply proceed with this), "Choose a different database in the same storage folder," or "Load from an external backup file." If you load an external file, its validity is checked, it is then copied as a new database into the default storage location, and you are notified accordingly. For detailed backup/migration steps, see "[5. Data Backup and Migration](#5-data-backup-and-migration)."
+  * **When no database is found:** If, at app launch, no database file is found at the default storage location (`~/Library/Application Support/AIImageViewer/`) — such as on first launch, or if the file was deleted directly — the app does not automatically create a new one; instead a selection popup is shown. You can choose from "Create a new empty database" (selected by default; if this is your first time using the app, you can simply proceed with this), "Choose a different database in the same storage folder," or "Load from an external backup file." If you load an external file, its validity is checked, it is then copied as a new database into the default storage location, and you are notified accordingly. For detailed backup/migration steps, see "[6. Data Backup and Migration](#6-data-backup-and-migration)."
     A "Load sample data" checkbox is shown only when "Create a new empty database" is selected. Checking it also imports pre-prepared sample images (not actual AI-generated images, but dummy images created to let you try out import and metadata-display behavior), so you can try out how the app works. They can be deleted like any other image once no longer needed.
 * **Reset all these settings:** Restores naming rules, displayed fields, theme settings, and so on to their defaults (the auto-numbering counters themselves are not reset).
 
 ---
 
-## 4. Folder Image Sync Rules
+## 5. Folder Image Sync Rules
 
 Folders imported via "Import Folder" have their paths remembered, and can be rescanned using the "🔄 Sync" button. This section summarizes the judgment logic and behavior involved.
 
 Note that "name," as used in this explanation, refers to the original name of a folder or file — not the app's internal name field (the auto-numbered display such as CG001, CG002).
 
-### 4.1 Conditions for Being Included in Re-sync
+### 5.1 Conditions for Being Included in Re-sync
 
 The sole condition is whether the path exactly matches the absolute path that was remembered at import time.
 
@@ -188,7 +246,7 @@ Using Finder as an example of operations performed outside this application:
 
 💡 Both "renamed" and "moved" ultimately amount to the same single state: "no longer matches the remembered path."
 
-### 4.2 How Excluded Images Appear in the Image List
+### 5.2 How Excluded Images Appear in the Image List
 
 The app checks whether registered image files actually exist at their recorded paths (checked at launch and when "Sync" is run, with the list display based on the result).
 
@@ -197,7 +255,7 @@ The app checks whether registered image files actually exist at their recorded p
 * However, at this point the database record has not yet been deleted (it is merely "hidden" temporarily)
 * When images are missing and excluded from the list, a temporary notice appears in the status bar at the bottom of the screen: "○○ image file(s) could not be found and are not being shown (an external drive may not be connected)." This is meant to help you notice cases where images stored on an external drive merely appear to be missing because the drive isn't connected.
 
-### 4.3 Handling in the Database (Important)
+### 5.3 Handling in the Database (Important)
 
 The "🔄 Sync" button not only imports new images but also plays the role of permanently deleting, from the database, records for images that no longer exist.
 
@@ -208,7 +266,7 @@ The "🔄 Sync" button not only imports new images but also plays the role of pe
 
 Once "Sync" has been run even once, any images whose path is invalid at that time are permanently deleted.
 
-### 4.4 How to Restore (Undo)
+### 5.4 How to Restore (Undo)
 
 #### Pattern A: "Sync" has not yet been run
 Restoring the folder's name/location to how it was will automatically make the images reappear the next time you open the image list. No re-import operation is needed.
@@ -222,12 +280,12 @@ In that case, the following information is lost and the images are registered an
 * Any custom name you had set in the "Name" field (a new auto-numbered name will be assigned)
 * Saved edits such as prompts
 
-### 4.5 Summary (In Short)
+### 5.5 Summary (In Short)
 * As long as you don't press the sync button, moving or renaming a folder is fully reversible — the images come back once you restore it.
 * Once you press "Sync," any images with an invalid path at that time are permanently deleted, with no way back.
 * While you're planning to move or rename a folder, it's safest not to press "Sync" until you've restored it.
 
-### 4.6 Sync History
+### 5.6 Sync History
 Each time you press the "Sync" button, any folders/images that could not be found, or import errors, are automatically recorded.
 
 * **Popup shown only on first occurrence:** While the same issue persists (the same folder not found, the same import error content), the popup warning is shown only the first time. From the second occurrence onward, no popup is shown — it is only recorded in the history (so you won't be shown the same warning popup endlessly on every sync).
@@ -238,14 +296,14 @@ Each time you press the "Sync" button, any folders/images that could not be foun
 
 ---
 
-## 5. Data Backup and Migration
+## 6. Data Backup and Migration
 
-### 5.1 About the Selection Dialog When No Database Is Found
-If, at app launch, no database file is found at the default storage location (such as on first launch, or if the file was deleted directly), a selection popup is shown (see the explanation in "[3. Settings Screen](#3-settings-screen)" for details).
+### 6.1 About the Selection Dialog When No Database Is Found
+If, at app launch, no database file is found at the default storage location (such as on first launch, or if the file was deleted directly), a selection popup is shown (see the explanation in "[4. Settings Screen](#4-settings-screen)" for details).
 
 **For normal use, choose "Create a new empty database."** This is the default selection, and if you're using the app for the first time, you can simply press "OK" as-is. "Choose a different database in the same storage folder" and "Load from an external backup file" are special-case options intended only for when you want to restore previously used data.
 
-### 5.2 Database Storage Location
+### 6.2 Database Storage Location
 This app's data (registered image information, prompts, ratings, settings, etc.) is stored in the following folder:
 
 ```
@@ -254,18 +312,18 @@ This app's data (registered image information, prompts, ratings, settings, etc.)
 
 Inside this folder are `image_metadata.db` (the default database) and, if you've created additional ones, files such as `image_metadata2.db`. **The image files themselves are not stored here** (the app manages them in place, in their original import folders). What you need to back up and migrate is the contents of this folder.
 
-### 5.3 How to Back Up
+### 6.3 How to Back Up
 1. From the Finder menu, choose "Go" → "Go to Folder...", then enter and open `~/Library/Application Support/AIImageViewer/`.
 2. Copy the contents of the folder (the `.db` files, such as `image_metadata.db`) to any location of your choice, such as an external drive or cloud storage.
 
 It's recommended to back up periodically, or before and after major editing work.
 
-### 5.4 Notes on Uninstalling / Reinstalling the App
+### 6.4 Notes on Uninstalling / Reinstalling the App
 Deleting the app itself (the `.app`) does not automatically delete the `~/Library/Application Support/AIImageViewer/` folder mentioned above. If you reinstall and launch on the same Mac under the same user account, your existing database will still be found and you can continue using the app as before.
 
 If you want to delete everything, including your data, you must manually delete this folder in addition to the app itself.
 
-### 5.5 Migrating to a Different Environment (a Different Mac or a Different User Account)
+### 6.5 Migrating to a Different Environment (a Different Mac or a Different User Account)
 1. On the source machine, follow the steps in 5.3 above to copy the contents (`.db` files) of `~/Library/Application Support/AIImageViewer/`.
 2. Launch this app once on the destination machine (the "no database found" selection dialog will appear).
 3. In the dialog, choose "Load from an external backup file" and specify the `.db` file you copied.
@@ -275,7 +333,7 @@ If you want to delete everything, including your data, you must manually delete 
 
 ---
 
-## 6. Known Limitations
+## 7. Known Limitations
 
 **Drag-and-drop import is temporarily disabled**
 
