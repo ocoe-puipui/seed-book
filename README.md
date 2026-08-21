@@ -1,5 +1,3 @@
-2026/08/20 (v1.4.0)
-
 [日本語版はこちら / Japanese README is here](./README.ja.md)
 
 <img width="1311" height="1071" alt="UI1" src="./design/screenshots/ui_main_light.png" />

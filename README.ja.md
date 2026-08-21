@@ -1,5 +1,3 @@
-2026/08/20 (v1.4.0)
-
 [English README is here / 英語版はこちら](./README.md)
 
 <img width="1311" height="1071" alt="UI1" src="./design/screenshots/ui_main_light.png" />
