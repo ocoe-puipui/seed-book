@@ -227,7 +227,12 @@ def init_db():
             path TEXT UNIQUE
         )
     """)
-    
+
+    cursor.execute("PRAGMA table_info(folders)")
+    existing_folder_columns = [col[1] for col in cursor.fetchall()]
+    if "color" not in existing_folder_columns:
+        cursor.execute("ALTER TABLE folders ADD COLUMN color TEXT")
+
     cursor.execute("PRAGMA table_info(images)")
     existing_columns = [col[1] for col in cursor.fetchall()]
     if "file_hash" not in existing_columns:
@@ -332,6 +337,12 @@ def init_db():
             FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE
         )
     """)
+
+    cursor.execute("PRAGMA table_info(albums)")
+    existing_columns = [col[1] for col in cursor.fetchall()]
+    if "color" not in existing_columns:
+        cursor.execute("ALTER TABLE albums ADD COLUMN color TEXT")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS album_naming_rules (
             album_id INTEGER PRIMARY KEY,
@@ -367,6 +378,33 @@ def get_all_folders():
     rows = [row[0] for row in cursor.fetchall()]
     conn.close()
     return rows
+
+def get_folder_color(folder_path):
+    """指定フォルダ（実パス）の識別色を返す。未設定またはフォルダ未登録の場合はNone
+    （v1.4.1〜、フォルダ見出しアイコンの色分け機能用。albums.colorと同じ考え方）。"""
+    if not folder_path:
+        return None
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("SELECT color FROM folders WHERE path = ?", (folder_path,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else None
+
+def set_folder_color(folder_path, color):
+    """指定フォルダ（実パス）の識別色を保存する（color=Noneで未設定に戻す）。
+    folders テーブルにまだ行が無い場合（通常は起こらないが念のため）は新規作成する。"""
+    if not folder_path:
+        return
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO folders (path, color) VALUES (?, ?) "
+        "ON CONFLICT(path) DO UPDATE SET color = excluded.color",
+        (folder_path, color)
+    )
+    conn.commit()
+    conn.close()
 
 def delete_folder_and_images(folder_path):
     """指定フォルダ（実パス）を「取り込み済みフォルダ」一覧から削除し、
@@ -661,11 +699,12 @@ def clear_folder_naming_rule(folder_path):
 
 def get_all_albums():
     """全アルバムを、並び順（sort_order→作成順）でリストで返す。
-    戻り値の各要素は {"id", "name", "sort_order", "image_count"} の辞書。"""
+    戻り値の各要素は {"id", "name", "sort_order", "image_count", "color"} の辞書。
+    color は未設定の場合 None（v1.4.1 段階3〜、色ドット表示機能用）。"""
     conn = sqlite3.connect(_db_path())
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT a.id, a.name, a.sort_order, COUNT(ai.image_id)
+        SELECT a.id, a.name, a.sort_order, COUNT(ai.image_id), a.color
         FROM albums a
         LEFT JOIN album_images ai ON ai.album_id = a.id
         GROUP BY a.id
@@ -673,7 +712,16 @@ def get_all_albums():
     """)
     rows = cursor.fetchall()
     conn.close()
-    return [{"id": r[0], "name": r[1], "sort_order": r[2], "image_count": r[3]} for r in rows]
+    return [{"id": r[0], "name": r[1], "sort_order": r[2], "image_count": r[3], "color": r[4]} for r in rows]
+
+def set_album_color(album_id, color):
+    """アルバムの識別色を設定する（v1.4.1 段階3〜）。color は "#rrggbb" 形式の文字列、または
+    未設定に戻す場合は None を渡す。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("UPDATE albums SET color = ? WHERE id = ?", (color, album_id))
+    conn.commit()
+    conn.close()
 
 def add_album(name):
     """新しいアルバムを作成し、作成したアルバムのidを返す。
@@ -804,20 +852,38 @@ def get_album_image_ids(album_id):
     conn.close()
     return {r[0] for r in rows}
 
-def get_albums_for_image(image_id):
-    """指定画像が所属している全アルバムを [{"id", "name"}, ...] で返す（右クリックメニューの
-    チェック表示・複数所属の確認用）。"""
+def get_all_album_memberships():
+    """全画像のアルバム所属を一括取得し、{image_id: [{"id", "name", "color"}, ...]} の辞書で返す
+    （v1.4.1 段階3〜、色ドット表示・段階4のホバーオーバーレイ用）。画像リスト構築のたびに
+    画像1件ごとDB問い合わせするのを避けるため、一覧構築の直前に1回だけ呼び出してマップ化する想定。"""
     conn = sqlite3.connect(_db_path())
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT a.id, a.name FROM albums a
+        SELECT ai.image_id, a.id, a.name, a.color FROM album_images ai
+        JOIN albums a ON a.id = ai.album_id
+        ORDER BY a.sort_order, a.id
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    result = {}
+    for image_id, album_id, name, color in rows:
+        result.setdefault(image_id, []).append({"id": album_id, "name": name, "color": color})
+    return result
+
+def get_albums_for_image(image_id):
+    """指定画像が所属している全アルバムを [{"id", "name", "color"}, ...] で返す（右クリックメニューの
+    チェック表示・複数所属の確認用、および画像リストの色ドット表示用）。"""
+    conn = sqlite3.connect(_db_path())
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.id, a.name, a.color FROM albums a
         JOIN album_images ai ON ai.album_id = a.id
         WHERE ai.image_id = ?
         ORDER BY a.sort_order, a.id
     """, (image_id,))
     rows = cursor.fetchall()
     conn.close()
-    return [{"id": r[0], "name": r[1]} for r in rows]
+    return [{"id": r[0], "name": r[1], "color": r[2]} for r in rows]
 
 def peek_next_sequence_number(prefix, append):
     """指定したプレフィックス＋アペンドの組み合わせで、次に採番される番号を取得する（消費しない・設定画面のプレビュー用）。

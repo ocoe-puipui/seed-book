@@ -1,6 +1,6 @@
 import os
 import hashlib
-from PIL import Image, ExifTags
+from PIL import Image
 from datetime import datetime
 import database
 
